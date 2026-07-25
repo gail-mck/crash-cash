@@ -10,7 +10,21 @@ consequences the next simulated month.
 
 ## 1. Product overview
 
-Crash Cash simulates one month of financial life per turn. The player:
+Crash Cash is an exploration sandbox first, a game second (think Minecraft, or
+Quizlet's optional built-in games). Two ways to play, one engine:
+
+* Explore mode (default): a free sandbox. Change jobs, hours, budgets, and
+  accounts at any time, fast-forward 6 or 12 months to see long-term effects,
+  turn random life events off or on, and reset freely. No fail states, no
+  score to chase, just cause and effect.
+* Challenge mode (optional): pick a goal scenario, e.g. pay off a student
+  loan, build a $1,000 emergency fund, reach a 700 credit score, or grow a
+  retirement balance. Progress is tracked each month and completion is
+  celebrated. Difficulty levels are Minecraft-flavored (Peaceful through
+  Hard Mode) and control how often life events hit.
+
+In both modes, Crash Cash simulates one month of financial life per turn.
+The player:
 
 1. Creates a profile (name, age band, difficulty).
 2. Takes a job: pick from a dataset of real-world roles with average pay
