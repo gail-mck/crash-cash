@@ -1,0 +1,7 @@
+# requirements.txt
+#
+# Dev-only dependencies for Crash Cash's Python tooling (tools/ and
+# tests/python/). The site itself is pure static HTML/CSS/JS with zero
+# runtime dependencies; nothing here ships to the browser.
+
+pytest

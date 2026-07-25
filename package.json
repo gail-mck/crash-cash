@@ -1,7 +1,7 @@
 {
   "name": "crash-cash",
   "version": "1.0.0",
-  "description": "Crash Cash: crash-test your money. A safe money simulation sandbox for students ages 12 to 25.",
+  "description": "Crash Cash: crash-test your money. A safe simulation sandbox to learn, explore, and master everything money.",
   "type": "module",
   "private": true,
   "scripts": {
