@@ -87,11 +87,13 @@ export function showMonthReport(ctx, report, opts = {}) {
       statRow('Your real tax bill for last year', usd(report.taxSeason.liability)),
       statRow('What your paychecks withheld', usd(report.taxSeason.withheld), { why: 'withholding' }),
       el('div', { class: 'bigline' },
-        el('span', {}, report.taxSeason.refund >= 0 ? 'Refund' : 'You owe'),
+        el('span', {}, Math.abs(report.taxSeason.refund) < 1 ? 'All settled' : report.taxSeason.refund >= 0 ? 'Refund' : 'You owe'),
         el('span', { class: report.taxSeason.refund >= 0 ? 'good-text' : 'bad-text' }, usd(Math.abs(report.taxSeason.refund)))),
-      el('p', { class: 'tiny' }, report.taxSeason.refund >= 0
-        ? 'A refund is not a bonus: it is your own money coming back after an interest-free loan to the government.'
-        : 'Withholding came up short, so the rest is due now. Adjusting withholding spreads it across the year instead.'),
+      el('p', { class: 'tiny' }, Math.abs(report.taxSeason.refund) < 1
+        ? 'Your withholding matched your real tax bill almost exactly. This is what correctly set withholding looks like: no big refund, no surprise bill.'
+        : report.taxSeason.refund >= 0
+          ? 'A refund is not a bonus: it is your own money coming back after an interest-free loan to the government.'
+          : 'Withholding came up short, so the rest is due now. Adjusting withholding spreads it across the year instead.'),
     ]) : null,
 
     report.overdraftFee > 0 ? section('Ouch', [

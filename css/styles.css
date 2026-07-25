@@ -110,6 +110,9 @@ button { font-family: inherit; }
 
 .app { min-height: 100vh; }
 .shell { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: 100vh; }
+/* Grid/flex items default to min-width auto, which lets long unbreakable
+   content blow out the layout on small screens. Zero it everywhere. */
+.shell > *, .grid > *, .row > *, .main { min-width: 0; }
 
 .sidenav {
   background: var(--bg-raised);

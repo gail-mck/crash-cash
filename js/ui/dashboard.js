@@ -122,7 +122,7 @@ function renderScoreCard(ctx) {
           state.score.history.length > 1
             ? lineChart(
                 [{ label: 'Score', color: 'var(--accent)', points: state.score.history.map((h) => ({ x: h.monthIndex, y: h.score })) }],
-                { yFormat: (v) => String(Math.round(v)), xLabel: (m) => monthLabel(m, state.time.startYear, state.time.startMonth) })
+                { yFormat: (v) => String(Math.round(v)), zeroBase: false, xLabel: (m) => monthLabel(m, state.time.startYear, state.time.startMonth) })
             : null),
   );
 }

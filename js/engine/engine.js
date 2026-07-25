@@ -40,6 +40,15 @@ import { netWorth, emptyYtd, logTxn, DIFFICULTIES } from '../state.js';
  */
 export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
   const state = structuredClone(prevState);
+
+  /* A new calendar year starts fresh year-to-date tax records. This must
+     happen before payroll so January's paycheck counts toward the new year
+     (December already archived last year's totals into lastYearTax). */
+  const calMonthAtStart = calendarMonth(state.time.monthIndex, state.time.startMonth);
+  if (calMonthAtStart === 0 && state.time.monthIndex > 0) {
+    state.ytd = emptyYtd();
+  }
+
   const report = {
     monthIndex: state.time.monthIndex,
     paycheck: null,
@@ -205,14 +214,11 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
   report.score.after = scored.score;
 
   /* 10. Tax season each April (skipped in the sim's very first April if no
-     full prior year exists; ytd resets every January regardless). */
+     full prior year exists; ytd was reset at the top of January's tick). */
   const calMonth = calendarMonth(state.time.monthIndex, state.time.startMonth);
   if (calMonth === 11) {
     /* December: archive the year for April's reconciliation. */
     state.lastYearTax = { ...state.ytd };
-  }
-  if (calMonth === 0 && state.time.monthIndex > 0) {
-    state.ytd = emptyYtd();
   }
   if (calMonth === 3 && state.lastYearTax && !state.lastYearTax.settled) {
     const rec = reconcileYear(state.lastYearTax);

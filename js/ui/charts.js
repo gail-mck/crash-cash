@@ -28,7 +28,9 @@ export function lineChart(series, opts = {}) {
   const ys = all.map((p) => p.y);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs, xMin + 1);
-  let yMin = Math.min(...ys, 0);
+  /* Money charts anchor at zero; score-style charts (zeroBase: false) zoom
+     to the data so small movements stay visible. */
+  let yMin = opts.zeroBase === false ? Math.min(...ys) : Math.min(...ys, 0);
   let yMax = Math.max(...ys);
   if (yMax === yMin) yMax = yMin + 1;
   const ySpan = yMax - yMin;

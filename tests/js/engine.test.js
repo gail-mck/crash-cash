@@ -66,6 +66,31 @@ test('tax season in April refunds overwithholding from last year', () => {
   assert.ok(refundTxn.amount >= 1150, 'roughly 12 x $100 extra came back, got ' + refundTxn.amount);
 });
 
+test('January resets year-to-date but keeps January\'s own paycheck in it', () => {
+  let state = workingAdult();
+  for (let i = 0; i < 13; i++) {
+    ({ state } = advanceMonth(state, [], neverEvent));
+  }
+  /* 13 ticks: Jan 2026 through Jan 2027. The new year's ytd must contain
+     exactly one month of pay (January 2027), not zero. */
+  const oneMonthGross = 63000 / 12;
+  assert.equal(state.ytd.gross, oneMonthGross);
+  assert.ok(state.ytd.fedWithheld > 0, 'January withholding counts toward the new year');
+  assert.ok(state.lastYearTax.gross >= oneMonthGross * 12 - 1, 'December archived the full prior year');
+});
+
+test('April tax season fires with a near-zero refund when withholding was exact', () => {
+  let state = workingAdult();
+  let taxReport = null;
+  for (let i = 0; i < 16; i++) {
+    const res = advanceMonth(state, [], neverEvent);
+    state = res.state;
+    if (res.report.taxSeason) taxReport = res.report.taxSeason;
+  }
+  assert.ok(taxReport, 'tax season happened in April of year two');
+  assert.ok(Math.abs(taxReport.refund) < 5, 'steady income + exact withholding nets out, got ' + taxReport.refund);
+});
+
 test('credit card autopay full keeps interest at zero all year', () => {
   let state = workingAdult();
   state.card = openCard(1500, 24, 0);

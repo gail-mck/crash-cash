@@ -52,8 +52,12 @@ export function mount(container, ...children) {
  */
 export function openModal(build, opts = {}) {
   const root = document.getElementById('modal-root');
+  /* Lock body scroll while the modal is open so the page cannot drift. */
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
   const close = () => {
     backdrop.remove();
+    document.body.style.overflow = prevOverflow;
     document.removeEventListener('keydown', onKey);
   };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
