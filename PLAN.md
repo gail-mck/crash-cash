@@ -1,7 +1,7 @@
-# CashCraft: Development Plan
+# Crash Cash: Development Plan
 
-**App name:** CashCraft
-**Slogan:** Where money mistakes are free.
+**App name:** Crash Cash
+**Slogan:** Crash-test your money. (Where money mistakes are free.)
 **Audience:** Total beginners, ages 12 to 25.
 **Goal:** A safe, sandboxed money simulator. Players learn taxes, banking, credit,
 debt, budgeting, and retirement by doing, not by reading lectures. Education is
@@ -10,7 +10,7 @@ consequences the next simulated month.
 
 ## 1. Product overview
 
-CashCraft simulates one month of financial life per turn. The player:
+Crash Cash simulates one month of financial life per turn. The player:
 
 1. Creates a profile (name, age band, difficulty).
 2. Takes a job: pick from a dataset of real-world roles with average pay
