@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -qm 'Add jobs, events, and glossary datasets \\(content agent\\) *)",
+      "Bash(node --test tests/js/)",
+      "Bash(node --test tests/js/*.test.js)",
+      "Bash(npm test *)"
+    ]
+  }
+}
