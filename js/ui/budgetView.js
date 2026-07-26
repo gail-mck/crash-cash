@@ -5,15 +5,19 @@
  */
 
 import { el, whyButton, segmented, meter, pill } from './components.js';
+import { icon } from './icons.js';
+import { guideBanner, budgetStepButton } from './guide.js';
 import { usd, pct, toCents } from '../engine/format.js';
 import { runPayroll } from '../engine/payroll.js';
 
 export function renderBudgetView(ctx) {
   return el('div', {},
+    guideBanner(ctx),
     renderSummary(ctx),
-    renderGuide(ctx),
     renderCategories(ctx),
     renderAutoSave(ctx),
+    renderGuide(ctx),
+    budgetStepButton(ctx),
   );
 }
 
@@ -44,7 +48,7 @@ function renderSummary(ctx) {
   const tone = ratio < 0.8 ? 'good' : ratio <= 1 ? 'warn' : 'bad';
 
   return el('div', { class: 'card' },
-    el('h2', {}, '🧮 This month\'s plan'),
+    el('h2', {}, icon('sliders', 20), ' This month\'s plan'),
     el('div', { class: 'grid cols-3' },
       bigStat('Take-home pay', usd(income), 'net-pay'),
       bigStat('Planned out', usd(committed), null, committed > 0 ? 'spending ' + usd(spending) + ' + saving ' + usd(saving) : ''),
@@ -89,7 +93,7 @@ function renderGuide(ctx) {
   const savesPct = (saves / income) * 100;
 
   return el('div', { class: 'card mt' },
-    el('h3', {}, '⚖️ The 50/30/20 check', whyButton('5030-20-rule')),
+    el('h3', {}, icon('scale', 18), ' The 50/30/20 check', whyButton('5030-20-rule')),
     el('p', { class: 'tiny' }, 'A rough guide, not a law: about half for needs, under a third for wants, a fifth toward savings. Here is your plan against it:'),
     row('Needs', needsPct, 50, needsPct > 60 ? 'warn' : 'good'),
     row('Wants', wantsPct, 30, wantsPct > 40 ? 'warn' : 'good'),
@@ -103,7 +107,7 @@ function renderCategories(ctx) {
   const state = ctx.state;
   return el('div', { class: 'card mt' },
     el('div', { class: 'row between' },
-      el('h3', {}, '🗂️ Spending categories'),
+      el('h3', {}, icon('wallet', 18), ' Spending categories'),
       el('button', {
         class: 'btn small',
         onclick: () => ctx.update((d) => {
@@ -172,7 +176,7 @@ function renderAutoSave(ctx) {
     }),
     el('span', { class: 'tiny' }, hint));
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🌱 Pay yourself first', whyButton('emergency-fund')),
+    el('h3', {}, icon('sprout', 18), ' Pay yourself first', whyButton('emergency-fund')),
     el('p', { class: 'tiny' }, 'Every month, right after spending, these transfers happen automatically. Saving that runs itself is saving that actually happens.'),
     el('div', { class: 'grid cols-2' },
       field('savings', 'To savings (' + pct(state.rates.savingsApy) + ' APY)', 'Easy access, barely grows.'),

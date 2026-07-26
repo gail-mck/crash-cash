@@ -5,7 +5,8 @@
  * glossary, and an honest list of what the simulation simplifies.
  */
 
-import { el, whyButton, statRow, segmented } from './components.js';
+import { el, mount, whyButton, statRow, segmented } from './components.js';
+import { icon } from './icons.js';
 import { usd, pct, toCents } from '../engine/format.js';
 import { FEDERAL_BRACKETS, STANDARD_DEDUCTION, federalTaxOnTaxable } from '../engine/tax.js';
 import { runPayroll } from '../engine/payroll.js';
@@ -27,7 +28,7 @@ export function renderLearnView(ctx) {
 
 function renderLastMonth(ctx) {
   return el('div', { class: 'card' },
-    el('h3', {}, '🧾 Your last month, explained'),
+    el('h3', {}, icon('save', 18), ' Your last month, explained'),
     ctx.state.report
       ? el('div', {},
           el('p', { class: 'muted' }, 'Reopen the full breakdown of what happened last month and why.'),
@@ -67,7 +68,7 @@ function renderTaxWalkthrough(ctx) {
   const effective = annualTaxable > 0 ? (total / annualTaxable) * 100 : 0;
 
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🏛️ How your paycheck gets taxed', whyButton('tax-brackets')),
+    el('h3', {}, icon('bank', 18), ' How your paycheck gets taxed', whyButton('tax-brackets')),
     el('p', { class: 'muted' }, intro),
     statRow('Standard deduction (tax-free off the top)', '-' + usd(STANDARD_DEDUCTION, { cents: false }), { why: 'standard-deduction' }),
     statRow('Taxed amount', usd(afterDeduction, { cents: false })),
@@ -107,7 +108,7 @@ function renderBigLevers(ctx) {
     lines.map((l) => el('p', { class: 'muted', style: 'margin:2px 0' }, l)));
 
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🎚️ The big levers'),
+    el('h3', {}, icon('sliders', 18), ' The big levers'),
     el('p', { class: 'tiny' }, 'Computed live with this sim\'s current rates. Change the rates in Settings and watch these change.'),
     lever('Where money sleeps matters', [
       '$1,000 left for 5 years in regular savings (' + pct(rates.savingsApy) + ') becomes ' + usd(regular) + '.',
@@ -128,7 +129,9 @@ function renderBigLevers(ctx) {
 
 function renderGlossary(ctx) {
   const categories = ['All', ...new Set(GLOSSARY.map((g) => g.category))];
-  let query = '';
+  /* A "Read more in Learn" click seeds the search box with that term. */
+  let query = typeof window !== 'undefined' && window.__learnSearch ? window.__learnSearch : '';
+  if (typeof window !== 'undefined') window.__learnSearch = null;
   let category = 'All';
   const listWrap = el('div', { class: 'glossary-grid mt' });
 
@@ -137,7 +140,7 @@ function renderGlossary(ctx) {
     const items = GLOSSARY.filter((g) =>
       (category === 'All' || g.category === category) &&
       (!q || g.term.toLowerCase().includes(q) || g.definition.toLowerCase().includes(q)));
-    listWrap.replaceChildren(
+    mount(listWrap,
       ...(items.length ? items : []).map((g) => el('div', { class: 'term-card' },
         el('div', { class: 'c' }, g.category),
         el('div', { class: 't' }, g.term),
@@ -147,12 +150,12 @@ function renderGlossary(ctx) {
   }
 
   const search = el('input', {
-    type: 'text', placeholder: 'Search 50 money words...',
+    type: 'text', placeholder: 'Search 50 money words...', value: query,
     oninput: (e) => { query = e.target.value; renderList(); },
   });
   const seg = el('div', { class: 'mt' });
   function renderSeg() {
-    seg.replaceChildren(segmented(
+    mount(seg, segmented(
       categories.map((c) => ({ value: c, label: c })),
       category,
       (v) => { category = v; renderSeg(); renderList(); },
@@ -162,7 +165,7 @@ function renderGlossary(ctx) {
   renderList();
 
   return el('div', { class: 'card mt' },
-    el('h3', {}, '📖 Glossary'),
+    el('h3', {}, icon('book', 18), ' Glossary'),
     search, seg, listWrap,
   );
 }
@@ -179,7 +182,7 @@ function renderSimplifications() {
     'Nothing here is financial advice. It is a sandbox for building intuition safely.',
   ];
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🔍 What Crash Cash simplifies'),
+    el('h3', {}, icon('info', 18), ' What Crash Cash simplifies'),
     el('p', { class: 'muted' }, 'Real life has more fine print. Knowing what we smoothed over is part of the learning:'),
     el('ul', {}, items.map((i) => el('li', { class: 'muted' }, i))),
   );

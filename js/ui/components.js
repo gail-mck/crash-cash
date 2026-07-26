@@ -56,9 +56,11 @@ export function openModal(build, opts = {}) {
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
   const close = () => {
+    if (!backdrop.isConnected) return;
     backdrop.remove();
     document.body.style.overflow = prevOverflow;
     document.removeEventListener('keydown', onKey);
+    if (opts.onClose) opts.onClose();
   };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' });
@@ -80,6 +82,10 @@ export function closeBtn(close) {
 /* 3. Glossary explainers ("why" buttons) */
 
 const glossaryById = new Map(GLOSSARY.map((g) => [g.id, g]));
+
+/* main.js registers this so explainers can deep-link into the Learn tab. */
+let navigateToLearn = null;
+export function setLearnNavigator(fn) { navigateToLearn = fn; }
 
 /*
  * A small "?" button that opens a plain-language explainer.
@@ -104,7 +110,10 @@ export function openExplainer(glossaryId, extraLines = []) {
     el('h2', {}, entry ? entry.term : 'About this'),
     entry ? el('p', { class: 'muted' }, entry.definition) : null,
     ...extraLines.map((line) => el('p', {}, line)),
-    entry ? el('p', { class: 'tiny' }, 'Category: ' + entry.category + '. Find more in the Learn tab.') : null,
+    entry && navigateToLearn ? el('button', {
+      class: 'btn small ghost',
+      onclick: () => { close(); navigateToLearn(entry.term); },
+    }, 'Read more in Learn →') : null,
   ]);
 }
 

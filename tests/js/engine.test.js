@@ -13,7 +13,11 @@ import { openCard } from '../../js/engine/credit.js';
 const neverEvent = () => 0.99; /* rng that never triggers an event */
 
 function workingAdult() {
-  const state = createInitialState({ name: 'Sam', ageBand: '22-25', difficulty: 'peaceful', mode: 'explore' });
+  const state = createInitialState({ name: 'Sam', age: 23, difficulty: 'peaceful', mode: 'explore' });
+  /* Real saves start in the current calendar month; tests pin January 2026
+     so December archiving and April tax season land on fixed indexes. */
+  state.time.startYear = 2026;
+  state.time.startMonth = 0;
   state.job = {
     jobId: 'teacher', title: 'Teacher', type: 'salary', salary: 63000,
     hoursPerWeek: 40, maxHours: 50, benefitsEligible: true,
@@ -139,14 +143,14 @@ test('events fire deterministically with a stubbed rng and get paid', () => {
 });
 
 test('rollEvent filters by age band', () => {
-  const kid = createInitialState({ name: 'Kai', ageBand: '12-13', difficulty: 'normal' });
+  const kid = createInitialState({ name: 'Kai', age: 12, difficulty: 'normal' });
   const adultOnly = [{ id: 'car', title: 'Car repair', emoji: '🚗', kind: 'expense', amountMin: 100, amountMax: 200, minAge: 18, weight: 5, blurb: '', lesson: '' }];
   const rig = () => 0.0;
   assert.equal(rollEvent(kid, adultOnly, 1.0, rig), null, 'no eligible events for a 12 year old');
 });
 
 test('challenge mode: debt destroyer completes when the loan is gone', () => {
-  let state = createInitialState({ name: 'Zoe', ageBand: '18-21', difficulty: 'peaceful', mode: 'challenge' });
+  let state = createInitialState({ name: 'Zoe', age: 19, difficulty: 'peaceful', mode: 'challenge' });
   state = startChallenge(state, 'debt-destroyer');
   assert.equal(state.debts.length, 1);
   state.job = { ...workingAdult().job };
@@ -162,7 +166,7 @@ test('challenge mode: debt destroyer completes when the loan is gone', () => {
 });
 
 test('overdraft charges one fee and bounces further spending', () => {
-  let state = createInitialState({ name: 'Lo', ageBand: '16-17', difficulty: 'peaceful' });
+  let state = createInitialState({ name: 'Lo', age: 16, difficulty: 'peaceful' });
   state.accounts.checking = 20;
   state.accounts.savings = 0;
   state.budget.categories = [{ id: 'x', name: 'Spend', kind: 'want', planned: 90, method: 'debit' }];

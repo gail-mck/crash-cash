@@ -123,6 +123,36 @@ export function generateInsights(report, state) {
     });
   }
 
+  const collapsed = (report.investments || []).find((i) => i.collapsed);
+  if (collapsed) {
+    out.push({
+      tone: 'warn',
+      text: collapsed.name + ' collapsed and took ' + usd(-collapsed.change) + ' with it. Guaranteed high returns do not exist; that promise is the warning.',
+      glossaryId: 'compound-interest',
+    });
+  }
+  if (report.teaserEnded) {
+    out.push({
+      tone: 'warn',
+      text: 'That flashy savings rate was a teaser and it just expired. The fine print said so. Rate shopping means reading past the big number.',
+      glossaryId: 'apy',
+    });
+  }
+  if (report.checkingFee > 0) {
+    out.push({
+      tone: 'warn',
+      text: 'Your checking account charged a ' + usd(report.checkingFee) + ' monthly fee. Plenty of banks charge nothing for the same thing.',
+      glossaryId: 'checking-account',
+    });
+  }
+  if (report.cardAnnualFee > 0) {
+    out.push({
+      tone: 'info',
+      text: 'Your card\'s ' + usd(report.cardAnnualFee) + ' annual fee just hit. Fee cards only win if the rewards you actually earn beat the fee.',
+      glossaryId: 'credit-card',
+    });
+  }
+
   if (report.event && report.event.lesson) {
     out.push({ tone: 'info', text: report.event.lesson });
   }

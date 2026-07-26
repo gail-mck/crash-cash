@@ -5,6 +5,8 @@
  */
 
 import { el, whyButton, statRow, pill, meter, segmented, openModal, closeBtn } from './components.js';
+import { icon } from './icons.js';
+import { guideBanner, bankStepButton } from './guide.js';
 import { usd, pct, toCents } from '../engine/format.js';
 import { transfer } from '../engine/accounts.js';
 import { openCard, minimumPayment, applyPayment } from '../engine/credit.js';
@@ -15,8 +17,10 @@ import { canHaveCard } from '../state.js';
 
 export function renderBankView(ctx) {
   return el('div', {},
+    guideBanner(ctx),
     renderAccounts(ctx),
     renderTransferCard(ctx),
+    bankStepButton(ctx),
     renderCardSection(ctx),
     renderScoreDetail(ctx),
     renderDebtsSection(ctx),
@@ -24,20 +28,45 @@ export function renderBankView(ctx) {
   );
 }
 
-/* 1. Balances */
+/* 1. Balances. Each rate carries an edit affordance so the APY dials are
+   discoverable right where the number lives, not buried in Settings. */
 
 function renderAccounts(ctx) {
   const { accounts: a, rates } = ctx.state;
-  const item = (label, bal, sub, why) => el('div', { class: 'card acct' + (bal < 0 ? ' negative' : '') },
-    el('div', { class: 'label' }, label, whyButton(why)),
+  const item = (ic, label, bal, sub, why, rateKey, rateMax) => el('div', { class: 'card acct' + (bal < 0 ? ' negative' : '') },
+    el('div', { class: 'label' }, icon(ic, 16), ' ', label, whyButton(why),
+      rateKey ? el('button', {
+        class: 'why', 'aria-label': 'Change this rate', title: 'Sandbox: change this rate',
+        onclick: () => openRateEditor(ctx, rateKey, label, rateMax),
+      }, icon('edit', 10)) : null),
     el('div', { class: 'bal' }, usd(bal)),
     el('div', { class: 'sub' }, sub));
   return el('div', { class: 'grid autofit mb' },
-    item('💳 Checking', a.checking, a.checking < 0 ? 'Overdrafted! Fees apply until this is back above zero.' : 'Spending money. Earns nothing.', 'checking-account'),
-    item('🏦 Savings', a.savings, pct(ctx.state.rates.savingsApy) + ' APY. Safe, slow.', 'savings-account'),
-    item('🌱 High-Yield Savings', a.hysa, pct(rates.hysaApy) + ' APY. Same safety, roughly ' + Math.round(rates.hysaApy / Math.max(0.1, rates.savingsApy)) + 'x the interest.', 'high-yield-savings'),
-    item('🔒 Retirement', a.retirement, 'Locked until retirement. Grows at ' + pct(rates.retirementReturn) + ' expected per year. Fed only by paychecks.', 'compound-interest'),
+    item('wallet', 'Checking', a.checking, a.checking < 0 ? 'Overdrafted! Fees apply until this is back above zero.' : 'Spending money. Earns nothing.', 'checking-account', null),
+    item('bank', 'Savings', a.savings, pct(ctx.state.rates.savingsApy) + ' APY. Safe, slow.', 'savings-account', 'savingsApy', 2),
+    item('sprout', 'High-Yield Savings', a.hysa, pct(rates.hysaApy) + ' APY. Same safety, roughly ' + Math.round(rates.hysaApy / Math.max(0.1, rates.savingsApy)) + 'x the interest.', 'high-yield-savings', 'hysaApy', 6),
+    item('vault', 'Retirement', a.retirement, 'Locked until retirement. Grows at ' + pct(rates.retirementReturn) + ' expected per year. Fed only by paychecks.', 'compound-interest', 'retirementReturn', 12),
   );
+}
+
+/* A small modal to tweak one rate in place (the sandbox "what if" dial). */
+function openRateEditor(ctx, rateKey, label, max) {
+  openModal((close) => {
+    const out = el('b', {}, pct(ctx.state.rates[rateKey]));
+    return [
+      closeBtn(close),
+      el('h2', {}, label + ' rate'),
+      el('p', { class: 'muted' }, 'A sandbox dial: drag it and watch what the same balance earns. Real banks set this for you; here you get to experiment.'),
+      el('label', { class: 'field' },
+        el('span', {}, 'Annual rate ', out),
+        el('input', {
+          type: 'range', min: 0, max, step: 0.1, value: ctx.state.rates[rateKey],
+          oninput: (e) => { out.textContent = pct(Number(e.target.value)); },
+          onchange: (e) => ctx.update((d) => { d.rates[rateKey] = Number(e.target.value); }),
+        })),
+      el('button', { class: 'btn primary', onclick: close }, 'Done'),
+    ];
+  });
 }
 
 /* 2. Transfers */
@@ -55,7 +84,7 @@ function renderTransferCard(ctx) {
     Object.entries(names).map(([v, l]) => el('option', { value: v, selected: v === to }, l)));
 
   return el('div', { class: 'card' },
-    el('h3', {}, '↔️ Move money'),
+    el('h3', {}, icon('arrows', 18), ' Move money'),
     el('div', { class: 'grid cols-3' },
       el('label', { class: 'field' }, el('span', {}, 'From'), fromSel),
       el('label', { class: 'field' }, el('span', {}, 'To'), toSel),
@@ -83,15 +112,15 @@ function renderCardSection(ctx) {
   if (state.card) return renderCardManager(ctx);
   if (!canHaveCard(state)) {
     return el('div', { class: 'card mt' },
-      el('h3', {}, '💥 Credit card'),
-      el('p', { class: 'muted' }, 'Under 18, you cannot open your own credit card: a card is a loan, and minors cannot sign loan contracts. In this run, credit unlocks when you start at 18 or older.'),
+      el('h3', {}, icon('card', 18), ' Credit card'),
+      el('p', { class: 'muted' }, 'Under 18, you cannot open your own credit card: a card is a loan, and minors cannot sign loan contracts. Keep playing: you age a year every 12 simulated months, and this section unlocks the month you turn 18.'),
       el('p', { class: 'tiny' }, 'Real-world equivalents in the meantime: being an authorized user on a parent\'s card, or a debit card, which spends only money you have. ', whyButton('debit-card')),
     );
   }
   const gross = monthlyGross(state.job);
   const limit = !state.job ? 500 : gross < 2500 ? 1000 : 1500;
   return el('div', { class: 'card mt' },
-    el('h3', {}, '💥 Open your first credit card'),
+    el('h3', {}, icon('card', 18), ' Open your first credit card'),
     el('p', { class: 'muted' }, 'A card builds credit history when used well, and burns money when it is not. Both are worth experiencing here, where it is free.'),
     statRow('Credit limit', usd(limit, { cents: false }), { why: 'credit-limit' }),
     statRow('APR if you carry a balance', pct(state.rates.cardApr), { why: 'apr' }),
@@ -116,7 +145,7 @@ function renderCardManager(ctx) {
 
   return el('div', { class: 'card mt' },
     el('div', { class: 'row between' },
-      el('h3', {}, '💥 Credit card'),
+      el('h3', {}, icon('card', 18), ' Credit card'),
       pill(usd(card.limit - card.balance) + ' available', util > 70 ? 'bad' : util > 30 ? 'warn' : 'good')),
     statRow('Balance', usd(card.balance)),
     statRow('Limit', usd(card.limit, { cents: false }), { why: 'credit-limit' }),
@@ -164,7 +193,7 @@ function renderScoreDetail(ctx) {
   const { score } = ctx.state;
   if (score.value == null) {
     return el('div', { class: 'card mt' },
-      el('h3', {}, '📈 Credit score', whyButton('credit-score')),
+      el('h3', {}, icon('trendup', 18), ' Credit score', whyButton('credit-score')),
       el('p', { class: 'muted' }, 'No score yet: scores only exist once you have credit (a card or a loan) reporting on you.'),
     );
   }
@@ -179,14 +208,14 @@ function renderScoreDetail(ctx) {
   const weakest = factors.reduce((worst, f) => (f[1] != null && (worst == null || f[1] < worst[1]) ? f : worst), null);
   return el('div', { class: 'card mt' },
     el('div', { class: 'row between' },
-      el('h3', {}, '📈 Credit score: ' + score.value),
+      el('h3', {}, icon('trendup', 18), ' Credit score: ' + score.value),
       pill(scoreBand(score.value), score.value >= 670 ? 'good' : score.value >= 580 ? 'warn' : 'bad')),
     factors.map(([label, val, tip]) => el('div', { class: 'mb' },
       el('div', { class: 'row between' },
         el('span', { class: 'tiny' }, label),
         el('span', { class: 'tiny' }, val != null ? Math.round(val * 100) + '/100' : '')),
       meter(val || 0, (val || 0) > 0.7 ? 'good' : (val || 0) > 0.4 ? 'warn' : 'bad'))),
-    weakest ? el('p', { class: 'tiny' }, '💡 Biggest opportunity: ' + weakest[0].replace(/ \(\d+%\)/, '') + '. ' + weakest[2]) : null,
+    weakest ? el('p', { class: 'tiny' }, 'Biggest opportunity: ' + weakest[0].replace(/ \(\d+%\)/, '') + '. ' + weakest[2]) : null,
   );
 }
 
@@ -196,7 +225,7 @@ function renderDebtsSection(ctx) {
   const debts = ctx.state.debts;
   return el('div', { class: 'card mt' },
     el('div', { class: 'row between' },
-      el('h3', {}, '⚖️ Debts', whyButton('debt')),
+      el('h3', {}, icon('scale', 18), ' Debts', whyButton('debt')),
       el('button', { class: 'btn small', onclick: () => openAddDebt(ctx) }, '+ Add a debt')),
     debts.filter((d) => d.principal > 0).length === 0
       ? el('p', { class: 'muted' }, 'No debts. If you want to feel what a student loan or a family loan does to a budget, add one: this is the safe place to find out.')
@@ -285,7 +314,7 @@ function renderEventPref(ctx) {
   ];
   if (ctx.state.card) options.push({ value: 'credit', label: 'Credit card' });
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🎲 When life surprises you, pay from...'),
+    el('h3', {}, icon('dice', 18), ' When life surprises you, pay from...'),
     segmented(options, ctx.state.settings.eventPayMethod, (v) => ctx.update((d) => { d.settings.eventPayMethod = v; })),
     el('p', { class: 'tiny mt' }, 'Surprise expenses will hit this first, then fall back to checking. Each choice teaches something different about buffers.'),
   );

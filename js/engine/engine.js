@@ -30,7 +30,8 @@ import { computeScore } from './creditScore.js';
 import { tickDebt, totalDebt } from './debts.js';
 import { reconcileYear } from './tax.js';
 import { checkGoal } from './goals.js';
-import { netWorth, emptyYtd, logTxn, DIFFICULTIES } from '../state.js';
+import { maybeGenerateOffer, tickInvestments, tickHysaTeaser } from './offers.js';
+import { netWorth, emptyYtd, logTxn, currentAge, DIFFICULTIES } from '../state.js';
 
 /*
  * Advance the simulation by one month.
@@ -38,7 +39,7 @@ import { netWorth, emptyYtd, logTxn, DIFFICULTIES } from '../state.js';
  * `eventsPool` is the EVENTS dataset; `rng` returns [0, 1).
  * Returns { state, report }.
  */
-export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
+export function advanceMonth(prevState, eventsPool = [], rng = Math.random, offersPool = []) {
   const state = structuredClone(prevState);
 
   /* A new calendar year starts fresh year-to-date tax records. This must
@@ -59,6 +60,12 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
     autoSave: { savings: 0, hysa: 0 },
     cardStatement: null,
     interest: { savings: 0, hysa: 0, retirement: 0 },
+    investments: [],
+    checkingFee: 0,
+    cardAnnualFee: 0,
+    rewardsEarned: 0,
+    teaserEnded: false,
+    newOffer: null,
     overdraftFee: 0,
     taxSeason: null,
     score: { before: state.score.value, after: null },
@@ -162,8 +169,28 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
     }
   }
 
+  /* 5.5. Checking account monthly fee (from accepted "premium" offers). */
+  if (state.checkingMonthlyFee > 0) {
+    state.accounts.checking = toCents(state.accounts.checking - state.checkingMonthlyFee);
+    report.checkingFee = state.checkingMonthlyFee;
+    logTxn(state, { type: 'fee', label: 'Checking account monthly fee', amount: -state.checkingMonthlyFee, account: 'checking' });
+  }
+
   /* 6. Credit card interest, statement, autopay. */
   if (state.card) {
+    /* Annual fee lands on the card each anniversary of opening it. */
+    const monthsHeld = state.time.monthIndex - state.card.openedMonth;
+    if ((state.card.annualFee || 0) > 0 && monthsHeld > 0 && monthsHeld % 12 === 0) {
+      state.card = { ...state.card, balance: toCents(state.card.balance + state.card.annualFee) };
+      report.cardAnnualFee = state.card.annualFee;
+      logTxn(state, { type: 'fee', label: 'Credit card annual fee', amount: -state.card.annualFee, account: 'card' });
+    }
+    /* Cash-back rewards on this month's card spending, credited to checking. */
+    if ((state.card.rewardsPct || 0) > 0 && report.spendingTotals.credit > 0) {
+      report.rewardsEarned = toCents(report.spendingTotals.credit * state.card.rewardsPct / 100);
+      state.accounts.checking = toCents(state.accounts.checking + report.rewardsEarned);
+      logTxn(state, { type: 'income', label: 'Card rewards cash back', amount: report.rewardsEarned, account: 'checking' });
+    }
     const accrued = accrueInterest(state.card);
     state.card = cutStatement(accrued.card);
     const minDue = minimumPayment(state.card.statementBalance);
@@ -185,6 +212,15 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
     if (payRes.paid > 0) logTxn(state, { type: 'card', label: 'Credit card payment', amount: -payRes.paid, account: 'checking' });
     if (payRes.lateFee > 0) logTxn(state, { type: 'fee', label: 'Credit card late fee', amount: -payRes.lateFee, account: 'card' });
   }
+
+  /* 6.5. Investments grow, wobble, or (for scams) vanish; teaser HYSA rates
+     expire; and maybe a new company offer lands in the mailbox. */
+  report.investments = tickInvestments(state, rng);
+  for (const inv of report.investments) {
+    if (inv.collapsed) logTxn(state, { type: 'event', label: inv.name + ' collapsed', amount: inv.change, account: 'investment' });
+  }
+  report.teaserEnded = tickHysaTeaser(state);
+  report.newOffer = maybeGenerateOffer(state, offersPool, rng);
 
   /* 7. Interest and growth. */
   report.interest.savings = monthlyInterest(state.accounts.savings, state.rates.savingsApy);
@@ -258,8 +294,8 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random) {
 /* Pick this month's event, if any. Exported for tests. */
 export function rollEvent(state, eventsPool, chance, rng) {
   if (!eventsPool.length || rng() >= chance) return null;
-  const minAge = parseInt(String(state.profile.ageBand).split('-')[0], 10) || 12;
-  const eligible = eventsPool.filter((e) => minAge >= e.minAge);
+  const age = currentAge(state);
+  const eligible = eventsPool.filter((e) => age >= e.minAge);
   if (!eligible.length) return null;
   const totalWeight = eligible.reduce((s, e) => s + e.weight, 0);
   let roll = rng() * totalWeight;

@@ -5,14 +5,15 @@
  */
 
 import { el, segmented, pill, openModal, closeBtn, flash } from './components.js';
-import { DIFFICULTIES, exportState, importState } from '../state.js';
+import { icon } from './icons.js';
+import { DIFFICULTIES, exportState, importState, currentAge } from '../state.js';
 import { challengesForAge, startChallenge, CHALLENGES } from '../engine/goals.js';
-import { bandMinAge } from '../state.js';
-import { toCents } from '../engine/format.js';
+import { toCents, MONTH_NAMES } from '../engine/format.js';
 
 export function renderSettingsView(ctx) {
   return el('div', {},
     renderProfile(ctx),
+    renderTiming(ctx),
     renderEvents(ctx),
     renderRatesLab(ctx),
     renderSandboxTools(ctx),
@@ -30,13 +31,13 @@ function renderProfile(ctx) {
     onchange: (e) => ctx.update((d) => { d.profile.name = e.target.value.trim() || d.profile.name; }),
   });
   return el('div', { class: 'card' },
-    el('h3', {}, '👤 Profile'),
+    el('h3', {}, icon('user', 18), ' Profile'),
     el('div', { class: 'grid cols-2' },
       el('label', { class: 'field' }, el('span', {}, 'Name'), nameIn),
-      el('label', { class: 'field' }, el('span', {}, 'This run started at age'),
-        el('input', { type: 'text', value: state.profile.ageBand, disabled: true })),
+      el('label', { class: 'field' }, el('span', {}, 'Age'),
+        el('input', { type: 'text', value: currentAge(state) + ' (started at ' + state.profile.age + ')', disabled: true })),
     ),
-    el('p', { class: 'tiny' }, 'Age shapes the run (jobs, credit access). To try a different starting age, start a new run below.'),
+    el('p', { class: 'tiny' }, 'You age one year every 12 simulated months, which unlocks jobs and credit as you go. To start from a different age, begin a new run below.'),
     el('div', { class: 'mt' },
       el('span', { class: 'tiny', style: 'display:block; margin-bottom:6px' }, 'Mode'),
       segmented([
@@ -74,9 +75,33 @@ function pickChallenge(ctx) {
           close();
         },
       },
-        el('div', { class: 't' }, c.emoji + ' ' + c.title),
+        el('div', { class: 't' }, icon(c.icon), ' ' + c.title),
         el('div', { class: 'd' }, c.blurb)))),
   ]);
+}
+
+/* 1.5 Timing: where the calendar starts. */
+
+function renderTiming(ctx) {
+  const t = ctx.state.time;
+  return el('div', { class: 'card mt' },
+    el('h3', {}, icon('calendar', 18), ' Timing'),
+    el('p', { class: 'tiny' }, 'New runs start in the real current month. Change the calendar here if you want your simulation to live in a different month or year (the months already played just get relabeled).'),
+    el('div', { class: 'grid cols-2' },
+      el('label', { class: 'field' }, el('span', {}, 'Start month'),
+        el('select', {
+          onchange: (e) => ctx.update((d) => { d.time.startMonth = Number(e.target.value); }),
+        }, MONTH_NAMES.map((m, i) => el('option', { value: i, selected: i === t.startMonth }, m)))),
+      el('label', { class: 'field' }, el('span', {}, 'Start year'),
+        el('input', {
+          type: 'number', min: 2000, max: 2100, step: 1, value: t.startYear,
+          onchange: (e) => {
+            const y = Math.round(Number(e.target.value));
+            if (y >= 2000 && y <= 2100) ctx.update((d) => { d.time.startYear = y; });
+          },
+        })),
+    ),
+  );
 }
 
 /* 2. Life events frequency. */
@@ -84,7 +109,7 @@ function pickChallenge(ctx) {
 function renderEvents(ctx) {
   const current = DIFFICULTIES.find((d) => d.id === ctx.state.profile.difficulty) || DIFFICULTIES[0];
   return el('div', { class: 'card mt' },
-    el('h3', {}, '🎲 How often does life happen?'),
+    el('h3', {}, icon('dice', 18), ' How often does life happen?'),
     segmented(
       DIFFICULTIES.map((d) => ({ value: d.id, label: d.label })),
       ctx.state.profile.difficulty,
@@ -110,7 +135,7 @@ function renderRatesLab(ctx) {
     );
   };
   return el('div', { class: 'card mt' },
-    el('div', { class: 'row between' }, el('h3', {}, '🎚️ Rates lab'), pill('sandbox', 'brand')),
+    el('div', { class: 'row between' }, el('h3', {}, icon('flask', 18), ' Rates lab'), pill('sandbox', 'brand')),
     el('p', { class: 'tiny' }, 'These dials exist to experiment with. What happens to five years of saving if rates halve? Crank them and find out.'),
     el('div', { class: 'grid cols-2' },
       dial('savingsApy', 'Savings APY', 0, 2, 0.05, 'Big banks pay almost nothing.'),
@@ -125,16 +150,16 @@ function renderRatesLab(ctx) {
 
 function renderSandboxTools(ctx) {
   return el('div', { class: 'card mt' },
-    el('div', { class: 'row between' }, el('h3', {}, '🧪 Sandbox tools'), pill('sandbox', 'brand')),
+    el('div', { class: 'row between' }, el('h3', {}, icon('flask', 18), ' Sandbox tools'), pill('sandbox', 'brand')),
     el('div', { class: 'row' },
-      el('button', { class: 'btn', onclick: () => ctx.advance(6) }, '⏩ Fast-forward 6 months'),
-      el('button', { class: 'btn', onclick: () => ctx.advance(12) }, '⏭️ Fast-forward 12 months'),
+      el('button', { class: 'btn', onclick: () => ctx.advance(6) }, icon('fastforward', 16), ' Fast-forward 6 months'),
+      el('button', { class: 'btn', onclick: () => ctx.advance(12) }, icon('fastforward', 16), ' Fast-forward 12 months'),
       el('button', {
         class: 'btn',
         onclick: (e) => {
           ctx.update((d) => { d.accounts.checking = toCents(d.accounts.checking + 100); });
         },
-      }, '🪄 Conjure $100'),
+      }, icon('gift', 16), ' Conjure $100'),
     ),
     el('p', { class: 'tiny mt' }, 'Fast-forwarding replays every month faithfully (pay, taxes, interest, events). The $100 is pure sandbox magic; real life does not have this button.'),
     el('div', { class: 'mt' },
@@ -174,7 +199,7 @@ function renderSaveData(ctx) {
     },
   });
   return el('div', { class: 'card mt' },
-    el('h3', {}, '💾 Save data'),
+    el('h3', {}, icon('save', 18), ' Save data'),
     el('p', { class: 'tiny' }, 'Your run lives only in this browser. Export a file to keep it or move it to another device.'),
     el('div', { class: 'row' },
       el('button', {
@@ -188,8 +213,8 @@ function renderSaveData(ctx) {
           URL.revokeObjectURL(a.href);
           flash(e.target, 'Exported!');
         },
-      }, '⬇️ Export save'),
-      el('button', { class: 'btn', onclick: () => fileIn.click() }, '⬆️ Import save'),
+      }, icon('download', 16), ' Export save'),
+      el('button', { class: 'btn', onclick: () => fileIn.click() }, icon('upload', 16), ' Import save'),
       el('button', {
         class: 'btn danger',
         onclick: () => openModal((close) => [
@@ -200,7 +225,7 @@ function renderSaveData(ctx) {
             el('button', { class: 'btn', onclick: close }, 'Keep playing'),
             el('button', { class: 'btn danger', onclick: () => { close(); ctx.replaceState(null); } }, 'Wipe and restart')),
         ]),
-      }, '🗑️ Start over'),
+      }, icon('trash', 16), ' Start over'),
       fileIn),
     err,
   );
@@ -210,7 +235,7 @@ function renderSaveData(ctx) {
 
 function renderAbout() {
   return el('div', { class: 'card mt' },
-    el('h3', {}, '💥 Crash Cash'),
+    el('h3', {}, icon('coins', 18), ' Crash Cash'),
     el('p', { class: 'muted' }, 'Crash-test your money. A simulation for learning by doing: jobs, taxes, banking, credit, debt, and retirement with zero real-world risk.'),
     el('p', { class: 'tiny' }, 'Everything is simulated. Nothing here is financial advice, and no data ever leaves your browser. Open source under the MIT license.'),
   );
