@@ -104,7 +104,7 @@ export function createInitialState(profile) {
     history: [],
     ledger: [],
     report: null,
-    flags: { setupStep: 'job', seenHaveFun: false },
+    flags: { setupStep: 'job' },
   };
 }
 

@@ -44,9 +44,18 @@ const VIEWS = [
   { id: 'settings', label: 'Settings', ic: 'gear', render: renderSettingsView },
 ];
 
+/*
+ * Which view a save should open on. Setup steps map to their view; the
+ * 'first-month' step has no view of its own (it happens on the dashboard).
+ */
+function setupViewFor(s) {
+  const step = s && s.flags ? s.flags.setupStep : 'done';
+  const byStep = { job: 'job', budget: 'budget', bank: 'bank' };
+  return byStep[step] || 'dashboard';
+}
+
 let state = loadState();
-let currentView = state && state.flags.setupStep !== 'done' ? state.flags.setupStep : 'dashboard';
-if (!VIEWS.some((v) => v.id === currentView)) currentView = 'dashboard';
+let currentView = setupViewFor(state);
 const appRoot = document.getElementById('app');
 
 /* Restore the player's theme choice before first paint settles. */
@@ -136,7 +145,7 @@ function renderApp() {
   });
 
   const sidenav = el('nav', { class: 'sidenav' },
-    el('a', { class: 'logo', href: '#', onclick: (e) => { e.preventDefault(); ctx.go(inSetup ? state.flags.setupStep : 'dashboard'); } },
+    el('a', { class: 'logo', href: '#', onclick: (e) => { e.preventDefault(); ctx.go(setupViewFor(state)); } },
       el('span', { class: 'burst', style: 'color: var(--brand-text)' }, icon('coins', 26)),
       el('span', {},
         el('span', { class: 'word' }, 'Crash Cash'),

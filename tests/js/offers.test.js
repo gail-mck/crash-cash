@@ -21,6 +21,15 @@ function adult() {
   return state;
 }
 
+/* A plain $1,000 card with no history, for switch tests. */
+function openCardLike() {
+  return {
+    limit: 1000, apr: 24, balance: 0, statementBalance: 0,
+    paidLastStatementInFull: true, onTimePayments: 0, latePayments: 0,
+    openedMonth: 0, feeAnniversaryMonth: 0, inquiries: [0], utilizationPct: 0,
+  };
+}
+
 const CARD_OFFER = {
   id: 'test-card', kind: 'credit-card', company: 'Test Card Co.', headline: 'A card',
   pitch: '', minAge: 18, pushy: true, weight: 5, quality: 'mixed',
@@ -141,6 +150,47 @@ test('characters age one year every twelve simulated months', () => {
   }
   assert.equal(currentAge(state), 18, 'a year passed, a birthday happened');
   assert.equal(canHaveCard(state), true, 'credit unlocked at 18 mid-run');
+});
+
+test('switching cards carries the statement and the lost grace period', () => {
+  const state = adult();
+  /* Carrying a balance: grace period already lost, statement owed. */
+  state.card = {
+    limit: 1000, apr: 24, balance: 600, statementBalance: 600,
+    paidLastStatementInFull: false, onTimePayments: 3, latePayments: 1,
+    openedMonth: 0, feeAnniversaryMonth: 0, inquiries: [0], utilizationPct: 60,
+  };
+  state.time.monthIndex = 6;
+  maybeGenerateOffer(state, [CARD_OFFER], () => 0.1);
+  acceptOffer(state, state.mailbox[0].instanceId, [CARD_OFFER]);
+  assert.equal(state.card.balance, 600, 'balance follows you');
+  assert.equal(state.card.statementBalance, 600, 'so does what you already owe');
+  assert.equal(state.card.paidLastStatementInFull, false, 'no free grace period reset');
+  assert.equal(state.card.latePayments, 1, 'history follows you too');
+  assert.equal(state.card.openedMonth, 0, 'credit age is preserved');
+  assert.equal(state.card.feeAnniversaryMonth, 6, 'but the fee clock restarts');
+});
+
+test('a card offer is refused when the balance exceeds its limit', () => {
+  const state = adult();
+  state.card = { ...openCardLike(), balance: 1400 };
+  const tinyCard = { ...CARD_OFFER, id: 'tiny-card', terms: { ...CARD_OFFER.terms, limit: 300 } };
+  maybeGenerateOffer(state, [tinyCard], () => 0.1);
+  const res = acceptOffer(state, state.mailbox[0].instanceId, [tinyCard]);
+  assert.equal(res.ok, false);
+  assert.ok(res.error.includes('limit'));
+  assert.equal(state.card.limit, 1000, 'the old card is untouched');
+});
+
+test('reading mail without deciding does not block future offers', () => {
+  const state = adult();
+  const pool = [1, 2, 3, 4].map((n) => ({ ...CARD_OFFER, id: 'card-' + n }));
+  for (let i = 0; i < 3; i++) maybeGenerateOffer(state, pool, () => 0.1);
+  assert.equal(state.mailbox.length, 3);
+  assert.equal(maybeGenerateOffer(state, pool, () => 0.1), null, 'three unread offers block a fourth');
+  /* Opening them (what showOffer does) frees the queue again. */
+  state.mailbox.forEach((m) => { m.seen = true; });
+  assert.ok(maybeGenerateOffer(state, pool, () => 0.1), 'read but undecided mail does not block');
 });
 
 test('card annual fees land on the anniversary month', () => {

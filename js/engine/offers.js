@@ -10,7 +10,7 @@
  * Accepting applies the offer's terms to the state (this module owns that).
  */
 
-import { toCents } from './format.js';
+import { toCents, usd } from './format.js';
 import { openCard } from './credit.js';
 
 export const MAX_UNREAD = 3;
@@ -26,7 +26,9 @@ let instanceCounter = 0;
  */
 export function maybeGenerateOffer(state, pool, rng) {
   if (!state.settings.offersEnabled || !pool.length) return null;
-  const unread = state.mailbox.filter((m) => m.status === 'new').length;
+  /* Only unopened mail blocks new offers. Mail the player has read but not
+     decided on ("I'll think about it") never stops the flow. */
+  const unread = state.mailbox.filter((m) => m.status === 'new' && !m.seen).length;
   if (unread >= MAX_UNREAD) return null;
   if (rng() >= OFFER_CHANCE) return null;
 
@@ -73,13 +75,25 @@ export function acceptOffer(state, instanceId, pool) {
 
   if (offer.kind === 'credit-card') {
     const t = offer.terms;
+    if (state.card && state.card.balance > t.limit) {
+      return {
+        ok: false,
+        error: 'Your current balance is bigger than this card\'s limit, so the issuer will not take the transfer. Pay the balance down first. (Real issuers check this too.)',
+      };
+    }
     const newCard = openCard(t.limit, t.apr, state.time.monthIndex);
     newCard.annualFee = t.annualFee || 0;
     newCard.rewardsPct = t.rewardsPct || 0;
+    /* Annual fees bill from when THIS card was accepted, even though credit
+       age (openedMonth) carries over from the old card. */
+    newCard.feeAnniversaryMonth = state.time.monthIndex;
     if (state.card) {
-      /* Switching cards: the old balance moves to the new card, and the
-         fresh application is another hard inquiry. */
+      /* Switching cards: the balance, the statement you already owe, and
+         your payment history all move with you; the fresh application is
+         another hard inquiry. The grace period does not reset. */
       newCard.balance = state.card.balance;
+      newCard.statementBalance = state.card.statementBalance;
+      newCard.paidLastStatementInFull = state.card.paidLastStatementInFull;
       newCard.onTimePayments = state.card.onTimePayments;
       newCard.latePayments = state.card.latePayments;
       newCard.openedMonth = state.card.openedMonth;
@@ -102,7 +116,7 @@ export function acceptOffer(state, instanceId, pool) {
   } else if (offer.kind === 'investment') {
     const t = offer.terms;
     if (state.accounts.checking < t.minimum) {
-      return { ok: false, error: 'You need ' + t.minimum + ' in checking to open this. The offer stays in your mailbox.' };
+      return { ok: false, error: 'You need ' + usd(t.minimum, { cents: false }) + ' in checking to open this. The offer stays in your mailbox.' };
     }
     state.accounts.checking = toCents(state.accounts.checking - t.minimum);
     state.investments.push({

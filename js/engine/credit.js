@@ -29,8 +29,28 @@ export function openCard(limit, aprPct, monthIndex) {
     onTimePayments: 0,
     latePayments: 0,
     openedMonth: monthIndex,
+    /* Annual fees (offer cards) bill from this month, even if credit age
+       later carries over from an older card on a switch. */
+    feeAnniversaryMonth: monthIndex,
     inquiries: [monthIndex],
     utilizationPct: 0,
+  };
+}
+
+/*
+ * A voluntary mid-cycle payment: reduces the balance (and what is left of
+ * the statement) but is never judged against the minimum. Late fees and
+ * on-time credit belong to the monthly statement cycle only.
+ */
+export function extraPayment(card, requested, available) {
+  const paid = toCents(Math.max(0, Math.min(requested, available, card.balance)));
+  return {
+    card: {
+      ...card,
+      balance: toCents(card.balance - paid),
+      statementBalance: toCents(Math.max(0, card.statementBalance - paid)),
+    },
+    paid,
   };
 }
 

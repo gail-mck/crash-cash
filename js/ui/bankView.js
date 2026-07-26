@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 import { guideBanner, bankStepButton } from './guide.js';
 import { usd, pct, toCents } from '../engine/format.js';
 import { transfer } from '../engine/accounts.js';
-import { openCard, minimumPayment, applyPayment } from '../engine/credit.js';
+import { openCard, minimumPayment, extraPayment } from '../engine/credit.js';
 import { scoreBand } from '../engine/creditScore.js';
 import { createDebt, DEBT_KINDS, suggestedPayment } from '../engine/debts.js';
 import { monthlyGross } from '../engine/payroll.js';
@@ -177,7 +177,10 @@ function renderCardManager(ctx) {
           if (!(want > 0)) { payNote.textContent = 'Enter an amount first.'; return; }
           if (card.balance <= 0) { payNote.textContent = 'Nothing to pay. Nice.'; return; }
           ctx.update((draft) => {
-            const res = applyPayment(draft.card, want, Math.max(0, draft.accounts.checking));
+            /* A voluntary payment: never judged against the minimum, so it
+               can never trigger a late fee. That judgment happens once per
+               month at statement time. */
+            const res = extraPayment(draft.card, want, Math.max(0, draft.accounts.checking));
             draft.card = res.card;
             draft.accounts.checking = toCents(draft.accounts.checking - res.paid);
           });

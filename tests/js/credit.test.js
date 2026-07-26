@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   openCard, charge, accrueInterest, minimumPayment, cutStatement,
-  applyPayment, LATE_FEE,
+  applyPayment, extraPayment, LATE_FEE,
 } from '../../js/engine/credit.js';
 
 function freshCard() {
@@ -56,6 +56,27 @@ test('missing the minimum adds a late fee and a late mark', () => {
   assert.equal(res.lateFee, LATE_FEE);
   assert.equal(res.card.latePayments, 1);
   assert.equal(res.card.balance, 600 + LATE_FEE);
+});
+
+test('a voluntary extra payment is never punished as a late payment', () => {
+  let card = charge(freshCard(), 500).card;
+  card = cutStatement(card);
+  /* $10 is far below the $25 minimum, but this is a bonus payment, not a
+     missed one: no fee, no late mark, and the statement shrinks. */
+  const res = extraPayment(card, 10, 1000);
+  assert.equal(res.paid, 10);
+  assert.equal(res.card.balance, 490);
+  assert.equal(res.card.statementBalance, 490);
+  assert.equal(res.card.latePayments, 0, 'no late mark for paying extra');
+  assert.equal(res.card.onTimePayments, 0, 'and no double credit either');
+});
+
+test('extra payments are capped by cash, balance, and never go negative', () => {
+  let card = charge(freshCard(), 200).card;
+  card = cutStatement(card);
+  assert.equal(extraPayment(card, 500, 1000).card.balance, 0, 'never overpays the balance');
+  assert.equal(extraPayment(card, 500, 50).paid, 50, 'never spends cash you lack');
+  assert.equal(extraPayment(card, 500, 1000).card.statementBalance, 0);
 });
 
 test('payment is limited by available cash', () => {

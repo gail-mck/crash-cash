@@ -169,17 +169,21 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random, offe
     }
   }
 
-  /* 5.5. Checking account monthly fee (from accepted "premium" offers). */
+  /* 5.5. Checking account monthly fee (from accepted "premium" offers).
+     Goes through the same overdraft floor as any other checking spend. */
   if (state.checkingMonthlyFee > 0) {
-    state.accounts.checking = toCents(state.accounts.checking - state.checkingMonthlyFee);
-    report.checkingFee = state.checkingMonthlyFee;
-    logTxn(state, { type: 'fee', label: 'Checking account monthly fee', amount: -state.checkingMonthlyFee, account: 'checking' });
+    const feeSpend = spendFromChecking(state.accounts.checking, state.checkingMonthlyFee);
+    state.accounts.checking = feeSpend.newBalance;
+    report.checkingFee = feeSpend.spent;
+    logTxn(state, { type: 'fee', label: 'Checking account monthly fee', amount: -feeSpend.spent, account: 'checking' });
   }
 
   /* 6. Credit card interest, statement, autopay. */
   if (state.card) {
-    /* Annual fee lands on the card each anniversary of opening it. */
-    const monthsHeld = state.time.monthIndex - state.card.openedMonth;
+    /* Annual fee lands each anniversary of accepting this specific card
+       (openedMonth can be older when history carried over from a switch). */
+    const feeStart = state.card.feeAnniversaryMonth != null ? state.card.feeAnniversaryMonth : state.card.openedMonth;
+    const monthsHeld = state.time.monthIndex - feeStart;
     if ((state.card.annualFee || 0) > 0 && monthsHeld > 0 && monthsHeld % 12 === 0) {
       state.card = { ...state.card, balance: toCents(state.card.balance + state.card.annualFee) };
       report.cardAnnualFee = state.card.annualFee;

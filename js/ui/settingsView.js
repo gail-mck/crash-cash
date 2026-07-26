@@ -59,7 +59,7 @@ function renderProfile(ctx) {
 }
 
 function pickChallenge(ctx) {
-  const available = challengesForAge(bandMinAge(ctx.state.profile.ageBand));
+  const available = challengesForAge(currentAge(ctx.state));
   openModal((close) => [
     closeBtn(close),
     el('h2', {}, 'Pick your challenge'),
@@ -84,12 +84,19 @@ function pickChallenge(ctx) {
 
 function renderTiming(ctx) {
   const t = ctx.state.time;
+  /* The starting month drives December archiving, the January year-to-date
+     reset, and April tax season, so it locks once a month has been played.
+     The year is only a label, so it stays editable forever. */
+  const started = t.monthIndex > 0;
   return el('div', { class: 'card mt' },
     el('h3', {}, icon('calendar', 18), ' Timing'),
-    el('p', { class: 'tiny' }, 'New runs start in the real current month. Change the calendar here if you want your simulation to live in a different month or year (the months already played just get relabeled).'),
+    el('p', { class: 'tiny' }, started
+      ? 'Your run started in ' + MONTH_NAMES[t.startMonth] + ' ' + t.startYear + '. The starting month is locked now that time is moving, because tax season and the yearly reset are counted from it. Start a new run to pick a different month.'
+      : 'New runs start in the real current month. Change it here before your first Next Month if you want your simulation to live somewhere else on the calendar.'),
     el('div', { class: 'grid cols-2' },
       el('label', { class: 'field' }, el('span', {}, 'Start month'),
         el('select', {
+          disabled: started ? true : null,
           onchange: (e) => ctx.update((d) => { d.time.startMonth = Number(e.target.value); }),
         }, MONTH_NAMES.map((m, i) => el('option', { value: i, selected: i === t.startMonth }, m)))),
       el('label', { class: 'field' }, el('span', {}, 'Start year'),

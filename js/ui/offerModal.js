@@ -28,6 +28,15 @@ export function showOffer(ctx, instanceId) {
   let decided = instance.status !== 'new';
   let error = '';
 
+  /* Opening counts as reading the mail: read-but-undecided offers no longer
+     block new ones from arriving. */
+  if (instance.status === 'new' && !instance.seen) {
+    ctx.update((draft) => {
+      const inst = draft.mailbox.find((m) => m.instanceId === instanceId);
+      if (inst) inst.seen = true;
+    });
+  }
+
   openModal((close) => {
     const body = el('div', {});
 
