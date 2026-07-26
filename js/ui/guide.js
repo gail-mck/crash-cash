@@ -28,9 +28,13 @@ const STEP_INFO = {
     n: 4, view: 'dashboard', title: 'Run your first month',
     text: 'Hit the Next Month button (bottom right). Payday, spending, interest: it all happens at once, then gets explained.',
   },
+  tools: {
+    n: 5, view: 'settings', title: 'Meet your controls',
+    text: 'Last stop. These dials are the whole point of a sandbox: skip ahead in time, decide how rough life gets, and bend the interest rates to see what changes.',
+  },
 };
 
-export const TOTAL_STEPS = 4;
+export const TOTAL_STEPS = 5;
 
 /* The banner shown at the top of the current step's view. */
 export function guideBanner(ctx) {
@@ -77,7 +81,17 @@ function congratsLine(step) {
     budget: 'Budget set!',
     bank: 'Bank toured!',
     'first-month': 'First month survived!',
+    tools: 'You know where everything is.',
   }[step] || 'Done!';
+}
+
+/* Ends the walkthrough from the Settings tour. */
+export function toolsStepButton(ctx) {
+  if (ctx.state.flags.setupStep !== 'tools') return null;
+  return el('button', {
+    class: 'btn primary mt',
+    onclick: () => completeStep(ctx, 'tools'),
+  }, 'Got it, let me play');
 }
 
 /* Marks the bank step complete from an explicit button on the bank view. */

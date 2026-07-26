@@ -6,18 +6,21 @@
 
 import { el, segmented, pill, openModal, closeBtn, flash } from './components.js';
 import { icon } from './icons.js';
+import { guideBanner, toolsStepButton } from './guide.js';
 import { DIFFICULTIES, exportState, importState, currentAge } from '../state.js';
 import { challengesForAge, startChallenge, CHALLENGES } from '../engine/goals.js';
 import { toCents, MONTH_NAMES } from '../engine/format.js';
 
 export function renderSettingsView(ctx) {
   return el('div', {},
+    guideBanner(ctx),
     renderProfile(ctx),
     renderTiming(ctx),
     renderEvents(ctx),
     renderRatesLab(ctx),
     renderSandboxTools(ctx),
     renderSaveData(ctx),
+    toolsStepButton(ctx),
     renderAbout(),
   );
 }
@@ -41,8 +44,8 @@ function renderProfile(ctx) {
     el('div', { class: 'mt' },
       el('span', { class: 'tiny', style: 'display:block; margin-bottom:6px' }, 'Mode'),
       segmented([
-        { value: 'explore', label: '🧭 Explore' },
-        { value: 'challenge', label: '🎯 Challenge' },
+        { value: 'explore', label: 'Explore' },
+        { value: 'challenge', label: 'Challenge' },
       ], state.profile.mode, (v) => {
         if (v === state.profile.mode) return;
         if (v === 'explore') {
@@ -52,7 +55,7 @@ function renderProfile(ctx) {
         }
       }),
       el('p', { class: 'tiny mt' }, state.profile.mode === 'explore'
-        ? 'Pure sandbox. Switch to Challenge any time to chase a goal.'
+        ? 'Explore is the free sandbox: no goals, nothing to lose, change anything whenever. Challenge picks a target (pay off a loan, hit a 700 score) and tracks your progress toward it while life throws surprises.'
         : 'Chasing: ' + (CHALLENGES.find((c) => state.goal && c.id === state.goal.id) || { title: 'no goal picked yet' }).title + '. Switch to Explore to free-play.'),
     ),
   );
@@ -121,7 +124,8 @@ function renderEvents(ctx) {
       DIFFICULTIES.map((d) => ({ value: d.id, label: d.label })),
       ctx.state.profile.difficulty,
       (v) => ctx.update((d) => { d.profile.difficulty = v; })),
-    el('p', { class: 'tiny mt' }, current.blurb),
+    el('p', { class: 'tiny mt' }, current.blurb
+      + ' Life events are the random costs and windfalls that hit between paychecks: a cracked phone, a car repair, birthday cash. Turn them up when you want to test whether your budget survives surprises.'),
   );
 }
 
@@ -143,7 +147,7 @@ function renderRatesLab(ctx) {
   };
   return el('div', { class: 'card mt' },
     el('div', { class: 'row between' }, el('h3', {}, icon('flask', 18), ' Rates lab'), pill('sandbox', 'brand')),
-    el('p', { class: 'tiny' }, 'These dials exist to experiment with. What happens to five years of saving if rates halve? Crank them and find out.'),
+    el('p', { class: 'tiny' }, 'These four dials set how fast money grows (or how fast debt does). They are the levers real banks pull on you, so here you get to pull them yourself: halve the high-yield rate, or push the card APR to 36%, then skip a year and see what it did. You can also change savings rates straight from the Bank tab, next to each balance.'),
     el('div', { class: 'grid cols-2' },
       dial('savingsApy', 'Savings APY', 0, 2, 0.05, 'Big banks pay almost nothing.'),
       dial('hysaApy', 'High-yield APY', 0, 6, 0.1, 'Online banks pay real interest.'),
@@ -168,7 +172,7 @@ function renderSandboxTools(ctx) {
         },
       }, icon('gift', 16), ' Conjure $100'),
     ),
-    el('p', { class: 'tiny mt' }, 'Fast-forwarding replays every month faithfully (pay, taxes, interest, events). The $100 is pure sandbox magic; real life does not have this button.'),
+    el('p', { class: 'tiny mt' }, 'Skipping time is the fastest way to see the slow stuff: compound interest building, a loan shrinking, a credit score climbing, a card balance snowballing. Every skipped month is simulated in full (pay, taxes, interest, life events) and you get the final month\'s report at the end. The same buttons sit next to Next Month at the bottom right of every screen. The $100 is pure sandbox magic; real life does not have this button.'),
     el('div', { class: 'mt' },
       el('span', { class: 'tiny', style: 'display:block; margin-bottom:6px' }, 'Theme'),
       segmented([
@@ -207,7 +211,7 @@ function renderSaveData(ctx) {
   });
   return el('div', { class: 'card mt' },
     el('h3', {}, icon('save', 18), ' Save data'),
-    el('p', { class: 'tiny' }, 'Your run lives only in this browser. Export a file to keep it or move it to another device.'),
+    el('p', { class: 'tiny' }, 'Your run lives only in this browser, so clearing site data would wipe it. Export saves it as a file you can keep or move to another device; Import loads one back. Start over wipes this run and returns you to the very beginning.'),
     el('div', { class: 'row' },
       el('button', {
         class: 'btn',

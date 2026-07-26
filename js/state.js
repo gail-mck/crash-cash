@@ -33,8 +33,8 @@ export const DIFFICULTIES = [
   { id: 'bold', label: 'Hard Mode', eventChance: 0.65, blurb: 'Life comes at you fast. Expenses hit harder.' },
 ];
 
-/* Guided setup steps, in order. 'done' unlocks everything. */
-export const SETUP_STEPS = ['job', 'budget', 'bank', 'first-month', 'done'];
+/* Guided setup steps, in order. 'done' means the walkthrough is finished. */
+export const SETUP_STEPS = ['job', 'budget', 'bank', 'first-month', 'tools', 'done'];
 
 /*
  * The character's age right now: starting age plus one year for every
@@ -156,12 +156,16 @@ export function logTxn(state, entry) {
   if (state.ledger.length > 400) state.ledger.splice(0, state.ledger.length - 400);
 }
 
-/* Whether a given area of the app is unlocked under guided setup. */
+/*
+ * Whether a given area of the app is unlocked under guided setup.
+ * The final 'tools' step is a guided tour rather than a lock, so by then
+ * everything is open and the banner simply points the way.
+ */
 export function isUnlocked(state, area) {
   const step = state.flags.setupStep || 'done';
   if (step === 'done') return true;
-  const order = { job: 0, budget: 1, bank: 2, 'first-month': 3, done: 4 };
-  const reached = order[step] ?? 4;
+  const order = { job: 0, budget: 1, bank: 2, 'first-month': 3, tools: 4, done: 5 };
+  const reached = order[step] ?? 5;
   const needs = { dashboard: 3, job: 0, budget: 1, bank: 2, mailbox: 4, learn: 4, settings: 4 };
   return reached >= (needs[area] ?? 0);
 }

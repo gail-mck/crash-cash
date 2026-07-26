@@ -170,12 +170,32 @@ function renderApp() {
     ),
   );
 
-  const nextMonthFab = el('button', {
-    class: 'next-month',
-    onclick: () => ctx.advance(1),
-    title: 'Simulate one month',
-    disabled: inSetup && state.flags.setupStep !== 'first-month' ? true : null,
-  }, icon('play', 18), 'Next Month');
+  /*
+   * Time controls, always within reach: one month, or a jump ahead.
+   * Skipping is how you see compound interest and debt actually bite, so it
+   * lives next to the main button instead of hiding in Settings.
+   */
+  const timeLocked = inSetup && state.flags.setupStep !== 'first-month' && state.flags.setupStep !== 'tools';
+  const nextMonthFab = el('div', { class: 'fab-stack' },
+    el('div', { class: 'skip-row' },
+      el('button', {
+        class: 'btn small skip-btn', title: 'Simulate the next 6 months',
+        disabled: timeLocked ? true : null,
+        onclick: () => ctx.advance(6),
+      }, icon('fastforward', 14), ' 6 months'),
+      el('button', {
+        class: 'btn small skip-btn', title: 'Simulate the next 12 months',
+        disabled: timeLocked ? true : null,
+        onclick: () => ctx.advance(12),
+      }, icon('fastforward', 14), ' 1 year'),
+    ),
+    el('button', {
+      class: 'next-month',
+      onclick: () => ctx.advance(1),
+      title: 'Simulate one month',
+      disabled: timeLocked ? true : null,
+    }, icon('play', 18), 'Next Month'),
+  );
 
   const main = el('div', { class: 'main' }, renderHud(ctx), topbar, view.render(ctx));
   const bottomnav = el('nav', { class: 'bottomnav' }, ...navButtons());
