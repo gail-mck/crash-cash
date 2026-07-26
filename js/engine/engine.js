@@ -21,7 +21,7 @@
  */
 
 import { toCents, calendarMonth } from './format.js';
-import { runPayroll } from './payroll.js';
+import { runPayrollAll } from './payroll.js';
 import {
   monthlyInterest, monthlyGrowth, spendFromChecking, OVERDRAFT_FEE,
 } from './accounts.js';
@@ -73,8 +73,8 @@ export function advanceMonth(prevState, eventsPool = [], rng = Math.random, offe
   };
 
   /* 1. Payroll. */
-  if (state.job) {
-    const pay = runPayroll(state.job, state.ytd, {
+  if (state.jobs.length) {
+    const pay = runPayrollAll(state.jobs, state.ytd, {
       extraWithholding: state.settings.extraWithholding,
     });
     report.paycheck = pay;

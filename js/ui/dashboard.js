@@ -32,7 +32,7 @@ export function renderDashboard(ctx) {
       renderInsightsCard(ctx),
       renderActivityCard(state),
     ),
-    !state.job && state.flags.setupStep === 'done' ? renderNudge(ctx) : null,
+    !state.jobs.length && state.flags.setupStep === 'done' ? renderNudge(ctx) : null,
   );
 }
 
@@ -62,8 +62,8 @@ function renderAccountsGrid(ctx) {
     acctCard('bank', 'Savings', a.savings, pct(state.rates.savingsApy) + ' APY', null, 'savings-account'),
     acctCard('sprout', 'High-Yield Savings', a.hysa, pct(state.rates.hysaApy) + ' APY', null, 'high-yield-savings'),
     acctCard('vault', 'Retirement', a.retirement,
-      (state.job && state.job.retirementKind ? state.job.retirementKind + ' · ' : '') + pct(state.rates.retirementReturn) + ' expected return',
-      null, state.job && state.job.retirementKind === '403b' ? '403b' : '401k'),
+      (retirementKindOf(state) ? retirementKindOf(state) + ' · ' : '') + pct(state.rates.retirementReturn) + ' expected return',
+      null, retirementKindOf(state) === '403b' ? '403b' : '401k'),
   ];
   if (state.card) {
     const util = state.card.limit > 0 ? (state.card.balance / state.card.limit) * 100 : 0;
@@ -83,6 +83,12 @@ function renderAccountsGrid(ctx) {
     cards.push(acctCard('scale', 'Debts', -debt, state.debts.filter((d) => d.principal > 0).length + ' open', null, 'debt'));
   }
   return el('div', { class: 'grid autofit' }, cards);
+}
+
+/* The retirement plan type shown on the dashboard: the first job that has one. */
+function retirementKindOf(state) {
+  const withPlan = state.jobs.find((j) => j.retirementKind);
+  return withPlan ? withPlan.retirementKind : null;
 }
 
 function acctCard(iconName, label, balance, sub, warnBadge, glossaryId) {

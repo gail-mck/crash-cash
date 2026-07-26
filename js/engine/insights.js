@@ -32,10 +32,11 @@ export function generateInsights(report, state) {
         glossaryId: 'employer-match',
       });
     }
-    if (pay.match === 0 && state.job && state.job.benefitsEligible && (state.job.matchCapPct || 0) > 0 && (state.job.contribPct || 0) === 0) {
+    const missedMatch = state.jobs.find((j) => j.benefitsEligible && (j.matchCapPct || 0) > 0 && (j.contribPct || 0) === 0);
+    if (pay.match === 0 && missedMatch) {
       out.push({
         tone: 'warn',
-        text: 'Your job matches retirement contributions but you are contributing 0%, so you left free money on the table this month.',
+        text: missedMatch.title + ' matches retirement contributions but you are contributing 0%, so you left free money on the table this month.',
         glossaryId: 'employer-match',
       });
     }

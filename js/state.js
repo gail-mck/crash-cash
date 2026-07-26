@@ -3,9 +3,9 @@
  * The single source of truth for a Crash Cash save: the state shape, factory
  * defaults, localStorage persistence, and export/import.
  *
- * Schema v2: numeric age (ages 1 year per 12 simulated months), simulation
+ * Schema v3: numeric age (ages 1 year per 12 simulated months), simulation
  * starts at the real current month, guided setup steps, offer mailbox,
- * and investments.
+ * investments, and multiple jobs held at once.
  *
  * The engine never touches localStorage; persistence lives here and is
  * guarded so the same module loads cleanly inside Node tests.
@@ -13,7 +13,7 @@
 
 import { toCents } from './engine/format.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const STORAGE_KEY = 'crash-cash-save-v1';
 
 /* Starting-age quick picks for onboarding. Any age 12+ is valid. */
@@ -70,7 +70,7 @@ export function createInitialState(profile) {
     },
     goal: null,
     time: { monthIndex: 0, startYear: now.getFullYear(), startMonth: now.getMonth() },
-    job: null,
+    jobs: [],
     accounts: {
       checking: startingChecking,
       savings: startingSavings,

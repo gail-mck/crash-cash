@@ -12,7 +12,7 @@ import { transfer } from '../engine/accounts.js';
 import { openCard, minimumPayment, extraPayment } from '../engine/credit.js';
 import { scoreBand } from '../engine/creditScore.js';
 import { createDebt, DEBT_KINDS, suggestedPayment } from '../engine/debts.js';
-import { monthlyGross } from '../engine/payroll.js';
+import { runPayrollAll } from '../engine/payroll.js';
 import { canHaveCard } from '../state.js';
 
 export function renderBankView(ctx) {
@@ -117,8 +117,8 @@ function renderCardSection(ctx) {
       el('p', { class: 'tiny' }, 'Real-world equivalents in the meantime: being an authorized user on a parent\'s card, or a debit card, which spends only money you have. ', whyButton('debit-card')),
     );
   }
-  const gross = monthlyGross(state.job);
-  const limit = !state.job ? 500 : gross < 2500 ? 1000 : 1500;
+  const gross = runPayrollAll(state.jobs, state.ytd, {}).gross;
+  const limit = gross <= 0 ? 500 : gross < 2500 ? 1000 : 1500;
   return el('div', { class: 'card mt' },
     el('h3', {}, icon('card', 18), ' Open your first credit card'),
     el('p', { class: 'muted' }, 'A card builds credit history when used well, and burns money when it is not. Both are worth experiencing here, where it is free.'),

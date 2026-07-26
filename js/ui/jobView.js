@@ -8,7 +8,7 @@
 import { el, mount, openModal, closeBtn, whyButton, statRow, pill, segmented } from './components.js';
 import { icon } from './icons.js';
 import { guideBanner, completeStep } from './guide.js';
-import { runPayroll, monthlyGross, employerMatch } from '../engine/payroll.js';
+import { runPayroll, runPayrollAll, monthlyGross, employerMatch } from '../engine/payroll.js';
 import { usd, clamp } from '../engine/format.js';
 import { currentAge } from '../state.js';
 import { JOBS, JOB_CATEGORIES } from '../../data/jobs.js';
@@ -29,14 +29,17 @@ export function renderJobView(ctx) {
   const state = ctx.state;
   const parts = [guideBanner(ctx)];
 
-  if (state.job) {
-    /* Section 1: the job you hold and its monthly paycheck preview. */
-    parts.push(currentJobCard(ctx));
-    /* Section 2: hourly jobs let you choose how many hours to commit. */
-    if (state.job.type === 'hourly') parts.push(commitmentCard(ctx));
-    /* Section 3: benefits controls, or just the paycheck tax settings. */
-    if (state.job.benefitsEligible) parts.push(benefitsCard(ctx));
-    else parts.push(el('div', { class: 'card' }, taxControls(ctx)));
+  if (state.jobs.length) {
+    /* Combined paycheck first: taxes come out of everything together. */
+    if (state.jobs.length > 1) parts.push(combinedPaycheckCard(ctx));
+    /* Then one block of controls per job you hold. */
+    state.jobs.forEach((job, i) => {
+      parts.push(currentJobCard(ctx, job, i));
+      if (job.type === 'hourly') parts.push(commitmentCard(ctx, job, i));
+      if (job.benefitsEligible) parts.push(benefitsCard(ctx, job, i));
+    });
+    /* Tax settings are about you, not any one job, so they stand alone. */
+    parts.push(el('div', { class: 'card' }, taxControls(ctx)));
   } else {
     /* Empty state: nudge the player toward their first paycheck. */
     parts.push(emptyStateCard());
@@ -44,8 +47,10 @@ export function renderJobView(ctx) {
 
   /* Section 4: two clear doors instead of a wall of options. */
   parts.push(el('div', { class: 'card' },
-    el('h2', {}, icon('search', 20), ' ', state.job ? 'Switch jobs' : 'Find a job'),
-    el('p', { class: 'muted' }, 'Search realistic jobs with average pay, or invent your own. You can switch whenever you like.'),
+    el('h2', {}, icon('search', 20), ' ', state.jobs.length ? 'Add another job' : 'Find a job'),
+    el('p', { class: 'muted' }, state.jobs.length
+      ? 'You can work as many jobs at once as you like. Every paycheck stacks, and the tax math treats them as one combined income.'
+      : 'Search realistic jobs with average pay, or invent your own. You can switch or add more whenever you like.'),
     el('div', { class: 'row' },
       el('button', { class: 'btn primary', onclick: () => openJobPicker(ctx) },
         icon('search', 16), ' Browse & search jobs'),
@@ -57,7 +62,27 @@ export function renderJobView(ctx) {
   return el('div', {}, parts);
 }
 
-/* ---- Section 1: current job and paycheck preview ---- */
+/* ---- Combined paycheck across every job (only when holding 2 or more) ---- */
+
+function combinedPaycheckCard(ctx) {
+  const state = ctx.state;
+  const pay = runPayrollAll(state.jobs, state.ytd, payrollOpts(state));
+  return el('div', { class: 'card' },
+    el('h2', {}, icon('coins', 20), ' All ' + state.jobs.length + ' jobs together'),
+    el('p', { class: 'tiny' },
+      'Taxes are worked out on your combined income, not on each job separately. This is why working two jobs can push you into a higher bracket than either one alone.'),
+    statRow('Gross pay (all jobs)', usd(pay.gross), { why: 'gross-pay' }),
+    pay.retirement > 0 ? statRow('Retirement contributions', usd(-pay.retirement)) : null,
+    pay.match > 0 ? statRow('Employer matches (free money)', '+' + usd(pay.match), { why: 'employer-match', tone: 'good' }) : null,
+    pay.health > 0 ? statRow('Health insurance', usd(-pay.health)) : null,
+    statRow('Federal income tax', usd(-pay.federal), { why: 'federal-income-tax' }),
+    statRow('FICA (Social Security + Medicare)', usd(-pay.fica.total), { why: 'fica' }),
+    statRow('State income tax', usd(-pay.state), { why: 'state-income-tax' }),
+    statRow('Take-home (net) pay', usd(pay.net), { why: 'net-pay', tone: 'good' }),
+  );
+}
+
+/* ---- Section 1: each held job and its own paycheck preview ---- */
 
 /* The full monthly paycheck breakdown as stat rows. */
 function paycheckRows(state, job) {
@@ -78,9 +103,8 @@ function paycheckRows(state, job) {
   return rows;
 }
 
-function currentJobCard(ctx) {
+function currentJobCard(ctx, job, index) {
   const state = ctx.state;
-  const job = state.job;
   return el('div', { class: 'card' },
     el('div', { class: 'row between' },
       el('div', {},
@@ -91,26 +115,28 @@ function currentJobCard(ctx) {
             : 'Salaried at ' + payLabel(job) + ' ',
           whyButton('hourly-vs-salary')),
       ),
-      el('button', { class: 'btn danger small', onclick: () => confirmQuit(ctx) }, 'Quit job'),
+      el('button', { class: 'btn danger small', onclick: () => confirmQuit(ctx, job, index) }, 'Quit job'),
     ),
-    el('h3', {}, 'Your monthly paycheck'),
-    el('p', { class: 'tiny' }, 'A live preview of next month: what you earn, what comes out, and what actually lands in checking.'),
+    el('h3', {}, state.jobs.length > 1 ? 'This job on its own' : 'Your monthly paycheck'),
+    el('p', { class: 'tiny' }, state.jobs.length > 1
+      ? 'What this job pays before the combined tax math above.'
+      : 'A live preview of next month: what you earn, what comes out, and what actually lands in checking.'),
     paycheckRows(state, job),
   );
 }
 
 /* Quitting is a big move, so it gets a confirm modal. */
-function confirmQuit(ctx) {
+function confirmQuit(ctx, job, index) {
   openModal((close) => [
     closeBtn(close),
-    el('h2', {}, 'Quit ' + ctx.state.job.title + '?'),
+    el('h2', {}, 'Quit ' + job.title + '?'),
     el('p', { class: 'muted' },
       'Your paychecks stop right away. Everything already in your accounts stays yours, and your year-to-date taxes stick around, just like in real life.'),
     el('div', { class: 'row mt' },
       el('button', { class: 'btn', onclick: close }, 'Keep the job'),
       el('button', {
         class: 'btn danger',
-        onclick: () => { close(); ctx.update((draft) => { draft.job = null; }); },
+        onclick: () => { close(); ctx.update((draft) => { draft.jobs.splice(index, 1); }); },
       }, 'Yes, quit'),
     ),
   ]);
@@ -118,9 +144,8 @@ function confirmQuit(ctx) {
 
 /* ---- Section 2: hours commitment slider (hourly jobs only) ---- */
 
-function commitmentCard(ctx) {
+function commitmentCard(ctx, job, index) {
   const state = ctx.state;
-  const job = state.job;
 
   /* These two nodes update live while the slider moves; the state only
      changes (and the page only rerenders) when the player lets go. */
@@ -143,12 +168,12 @@ function commitmentCard(ctx) {
     },
     onchange: (e) => {
       const hours = clamp(Number(e.target.value) || 0, 0, job.maxHours || 40);
-      ctx.update((draft) => { draft.job.hoursPerWeek = hours; });
+      ctx.update((draft) => { draft.jobs[index].hoursPerWeek = hours; });
     },
   });
 
   return el('div', { class: 'card' },
-    el('h3', {}, 'Commitment ', hoursOut),
+    el('h3', {}, 'Commitment: ' + job.title + ' ', hoursOut),
     el('p', { class: 'tiny' },
       'Slide to pick how many hours you work each week, up to ' + (job.maxHours || 40) +
       ' for this job. More hours, bigger paycheck, less free time.'),
@@ -159,9 +184,8 @@ function commitmentCard(ctx) {
 
 /* ---- Section 3: benefits panel and paycheck tax settings ---- */
 
-function benefitsCard(ctx) {
+function benefitsCard(ctx, job, index) {
   const state = ctx.state;
-  const job = state.job;
   const gross = monthlyGross(job);
   const kindId = job.retirementKind === '403b' ? '403b' : '401k';
 
@@ -196,12 +220,12 @@ function benefitsCard(ctx) {
     },
     onchange: (e) => {
       const v = clamp(Number(e.target.value) || 0, 0, 20);
-      ctx.update((draft) => { draft.job.contribPct = v; });
+      ctx.update((draft) => { draft.jobs[index].contribPct = v; });
     },
   });
 
   return el('div', { class: 'card' },
-    el('h2', {}, icon('gift', 20), ' Benefits'),
+    el('h2', {}, icon('gift', 20), ' Benefits: ' + job.title),
     el('h3', {}, 'Retirement contribution ', pctOut),
     el('p', { class: 'tiny' },
       'A slice of each paycheck goes into your retirement account before taxes. Your employer chips in too.'),
@@ -210,7 +234,6 @@ function benefitsCard(ctx) {
     statRow('Plan type', job.retirementKind || '401k', { why: kindId }),
     statRow('Health insurance premium', usd(job.healthMonthly || 0) + '/month'),
     el('p', { class: 'tiny' }, 'The health premium comes out of your paycheck before taxes, so it also shrinks your tax bill a little.'),
-    taxControls(ctx),
   );
 }
 
@@ -221,7 +244,7 @@ function benefitsCard(ctx) {
  */
 function taxControls(ctx) {
   const state = ctx.state;
-  const current = state.job.statePct || 0;
+  const current = (state.jobs.find((j) => (j.statePct || 0) > 0) || {}).statePct || 0;
 
   const options = [
     { value: 0, label: 'No state income tax (0%)' },
@@ -233,7 +256,8 @@ function taxControls(ctx) {
     'aria-label': 'State income tax rate',
     onchange: (e) => {
       const v = Number(e.target.value) || 0;
-      ctx.update((draft) => { draft.job.statePct = v; });
+      /* You live in one state, so every job withholds at the same rate. */
+      ctx.update((draft) => { draft.jobs.forEach((j) => { j.statePct = v; }); });
     },
   }, options.map((o) => el('option', { value: o.value, selected: o.value === current }, o.label)));
 
@@ -270,7 +294,7 @@ function emptyStateCard() {
   return el('div', { class: 'card' },
     el('h2', {}, icon('briefcase', 20), ' No job yet'),
     el('p', { class: 'muted' },
-      'A job is what starts the money flowing. Pick one below, and every time you hit Next Month a paycheck lands in your checking account, with a real breakdown of where every dollar goes.'),
+      'A job is what starts the money flowing. Pick one below, and every time you hit Next Month a paycheck lands in your checking account, with a real breakdown of where every dollar goes. You can work more than one at a time.'),
     el('p', { class: 'tiny' }, 'You can switch or quit any time. Nothing here is permanent.'),
   );
 }
@@ -342,8 +366,7 @@ function jobCardButton(ctx, job, closePicker) {
 
 /* The details + confirm modal before taking a job. */
 function openJobDetails(ctx, job, closePicker) {
-  const current = ctx.state.job;
-  const isCurrent = !!current && current.jobId === job.id;
+  const alreadyHeld = ctx.state.jobs.some((j) => j.jobId === job.id);
   const kindId = job.retirementKind === '403b' ? '403b' : '401k';
 
   openModal((close) => [
@@ -361,18 +384,18 @@ function openJobDetails(ctx, job, closePicker) {
         statRow('Health insurance', usd(job.healthMonthly) + '/month, taken out before taxes'),
       ]
       : statRow('Benefits', 'None. No health plan or retirement match here.'),
-    current
+    ctx.state.jobs.length
       ? el('p', { class: 'tiny mt' },
-        'Switching jobs partway through the year keeps your year-to-date taxes, exactly like real life.')
+        'This gets added on top of the job' + (ctx.state.jobs.length > 1 ? 's' : '') + ' you already work. Two paychecks, one combined tax bill.')
       : null,
     el('div', { class: 'row mt' },
       el('button', { class: 'btn', onclick: close }, 'Not now'),
-      isCurrent
-        ? el('button', { class: 'btn', disabled: true }, 'This is your current job')
+      alreadyHeld
+        ? el('button', { class: 'btn', disabled: true }, 'You already work this job')
         : el('button', {
           class: 'btn primary',
           onclick: () => { close(); if (closePicker) closePicker(); takeJob(ctx, job); },
-        }, 'Take this job'),
+        }, ctx.state.jobs.length ? 'Add this job' : 'Take this job'),
     ),
   ]);
 }
@@ -380,8 +403,8 @@ function openJobDetails(ctx, job, closePicker) {
 /* Take a catalog job, defaulting the contribution to grab the full match. */
 function takeJob(ctx, job) {
   ctx.update((draft) => {
-    const prevStatePct = draft.job ? draft.job.statePct || 0 : 0;
-    draft.job = {
+    const prevStatePct = (draft.jobs.find((j) => (j.statePct || 0) > 0) || {}).statePct || 0;
+    draft.jobs.push({
       jobId: job.id,
       title: job.title,
       type: job.type,
@@ -396,7 +419,7 @@ function takeJob(ctx, job) {
       healthMonthly: job.healthMonthly,
       retirementKind: job.retirementKind,
       statePct: prevStatePct,
-    };
+    });
   });
   completeStep(ctx, 'job');
 }
@@ -491,8 +514,8 @@ function openCustomJobModal(ctx) {
     error = '';
 
     ctx.update((draft) => {
-      const prevStatePct = draft.job ? draft.job.statePct || 0 : 0;
-      draft.job = {
+      const prevStatePct = (draft.jobs.find((j) => (j.statePct || 0) > 0) || {}).statePct || 0;
+      draft.jobs.push({
         jobId: 'custom-' + Date.now().toString(36),
         title,
         type: model.type,
@@ -507,7 +530,7 @@ function openCustomJobModal(ctx) {
         healthMonthly: model.benefits ? healthMonthly : 0,
         retirementKind: model.benefits ? model.retirementKind : null,
         statePct: prevStatePct,
-      };
+      });
     });
     if (closeModal) closeModal();
     completeStep(ctx, 'job');

@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { monthlyGross, employerMatch, runPayroll, WEEKS_PER_MONTH } from '../../js/engine/payroll.js';
+import { monthlyGross, employerMatch, runPayroll, runPayrollAll, WEEKS_PER_MONTH } from '../../js/engine/payroll.js';
 
 const hourlyJob = {
   type: 'hourly', wage: 16, hoursPerWeek: 20, maxHours: 40,
@@ -66,4 +66,34 @@ test('a jobless month produces an all-zero paycheck', () => {
   const pay = runPayroll(null);
   assert.equal(pay.gross, 0);
   assert.equal(pay.net, 0);
+});
+
+test('two jobs stack their pay and are taxed as one combined income', () => {
+  const both = runPayrollAll([hourlyJob, salaryJob], { ficaWages: 0 });
+  const a = runPayroll(hourlyJob, { ficaWages: 0 });
+  const b = runPayroll(salaryJob, { ficaWages: 0 });
+
+  assert.equal(both.gross, a.gross + b.gross, 'gross adds up');
+  assert.equal(both.retirement, a.retirement + b.retirement, 'each job keeps its own contribution');
+  assert.equal(both.match, a.match + b.match, 'each employer matches separately');
+  assert.equal(both.jobCount, 2);
+
+  /* The teaching point: taxing combined income costs more than taxing each
+     job alone, which is exactly why a second job can surprise you in April. */
+  assert.ok(both.federal > a.federal + b.federal,
+    'combined income lands in higher brackets, got ' + both.federal);
+});
+
+test('a second job inherits the state tax rate already in play', () => {
+  const taxedState = { ...hourlyJob, statePct: 5 };
+  const noState = { ...salaryJob, statePct: 0 };
+  const pay = runPayrollAll([noState, taxedState], { ficaWages: 0 });
+  assert.ok(pay.state > 0, 'the one rate on file applies to all of it');
+});
+
+test('payroll across zero jobs is an all-zero paycheck', () => {
+  const pay = runPayrollAll([], {});
+  assert.equal(pay.gross, 0);
+  assert.equal(pay.net, 0);
+  assert.equal(pay.jobCount, 0);
 });

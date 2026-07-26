@@ -8,7 +8,7 @@ import { el, whyButton, segmented, meter, pill } from './components.js';
 import { icon } from './icons.js';
 import { guideBanner, budgetStepButton } from './guide.js';
 import { usd, pct, toCents } from '../engine/format.js';
-import { runPayroll } from '../engine/payroll.js';
+import { runPayrollAll } from '../engine/payroll.js';
 
 export function renderBudgetView(ctx) {
   return el('div', {},
@@ -23,8 +23,7 @@ export function renderBudgetView(ctx) {
 
 /* Monthly take-home for planning purposes. */
 function takeHome(state) {
-  if (!state.job) return 0;
-  return runPayroll(state.job, state.ytd, { extraWithholding: state.settings.extraWithholding }).net;
+  return runPayrollAll(state.jobs, state.ytd, { extraWithholding: state.settings.extraWithholding }).net;
 }
 
 function plannedTotal(state) {

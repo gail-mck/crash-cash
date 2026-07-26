@@ -9,7 +9,7 @@
 import { el } from './components.js';
 import { icon } from './icons.js';
 import { usd, monthLabel, calendarMonth } from '../engine/format.js';
-import { runPayroll } from '../engine/payroll.js';
+import { runPayrollAll } from '../engine/payroll.js';
 import { totalDebt } from '../engine/debts.js';
 import { netWorth, currentAge } from '../state.js';
 
@@ -51,10 +51,8 @@ export function renderHud(ctx) {
 
 /* All the derived numbers the HUD shows. Exported for tests. */
 export function hudStats(state) {
-  const pay = state.job
-    ? runPayroll(state.job, state.ytd, { extraWithholding: state.settings.extraWithholding })
-    : null;
-  const income = pay ? pay.net : 0;
+  const pay = runPayrollAll(state.jobs, state.ytd, { extraWithholding: state.settings.extraWithholding });
+  const income = pay.net;
   const planned = state.budget.categories.reduce((sum, c) => sum + (Number(c.planned) || 0), 0);
   const debtMinimums = state.debts.reduce((sum, d) => sum + (d.principal > 0 ? d.minPayment : 0), 0);
   const expenses = planned + debtMinimums + (state.checkingMonthlyFee || 0);

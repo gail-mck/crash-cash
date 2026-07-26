@@ -9,7 +9,7 @@ import { el, mount, whyButton, statRow, segmented } from './components.js';
 import { icon } from './icons.js';
 import { usd, pct, toCents } from '../engine/format.js';
 import { FEDERAL_BRACKETS, STANDARD_DEDUCTION, federalTaxOnTaxable } from '../engine/tax.js';
-import { runPayroll } from '../engine/payroll.js';
+import { runPayrollAll } from '../engine/payroll.js';
 import { monthlyInterest } from '../engine/accounts.js';
 import { GLOSSARY } from '../../data/glossary.js';
 import { showMonthReport } from './reportModal.js';
@@ -43,10 +43,11 @@ function renderTaxWalkthrough(ctx) {
   const state = ctx.state;
   let annualTaxable;
   let intro;
-  if (state.job) {
-    const pay = runPayroll(state.job, {}, { extraWithholding: 0 });
+  if (state.jobs.length) {
+    const pay = runPayrollAll(state.jobs, {}, { extraWithholding: 0 });
     annualTaxable = toCents(pay.incomeTaxable * 12);
-    intro = 'Your job pays about ' + usd(pay.gross) + ' gross per month. After pre-tax retirement and health, '
+    intro = (state.jobs.length > 1 ? 'Your ' + state.jobs.length + ' jobs pay' : 'Your job pays')
+      + ' about ' + usd(pay.gross) + ' gross per month combined. After pre-tax retirement and health, '
       + usd(annualTaxable, { cents: false }) + ' a year is what the IRS actually looks at.';
   } else {
     annualTaxable = 45000;

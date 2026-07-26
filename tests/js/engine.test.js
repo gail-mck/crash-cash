@@ -18,12 +18,12 @@ function workingAdult() {
      so December archiving and April tax season land on fixed indexes. */
   state.time.startYear = 2026;
   state.time.startMonth = 0;
-  state.job = {
+  state.jobs = [{
     jobId: 'teacher', title: 'Teacher', type: 'salary', salary: 63000,
     hoursPerWeek: 40, maxHours: 50, benefitsEligible: true,
     contribPct: 6, matchPct: 3, matchCapPct: 6, healthMonthly: 150,
     statePct: 0, retirementKind: '403b',
-  };
+  }];
   state.budget.categories = [
     { id: 'housing', name: 'Rent', kind: 'need', planned: 1200, method: 'debit' },
     { id: 'food', name: 'Food', kind: 'need', planned: 400, method: 'debit' },
@@ -153,7 +153,7 @@ test('challenge mode: debt destroyer completes when the loan is gone', () => {
   let state = createInitialState({ name: 'Zoe', age: 19, difficulty: 'peaceful', mode: 'challenge' });
   state = startChallenge(state, 'debt-destroyer');
   assert.equal(state.debts.length, 1);
-  state.job = { ...workingAdult().job };
+  state.jobs = [...workingAdult().jobs];
   state.budget.categories = [];
   state.debts[0].minPayment = 400; /* aggressive payoff */
   let completed = false;
