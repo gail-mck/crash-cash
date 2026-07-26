@@ -17,7 +17,7 @@ export const CHALLENGES = [
   {
     id: 'first-grand',
     title: 'First Grand',
-    emoji: '💰',
+    icon: 'vault',
     target: 1000,
     minAge: 12,
     blurb: 'Grow your savings and high-yield savings to $1,000 combined.',
@@ -32,7 +32,7 @@ export const CHALLENGES = [
   {
     id: 'debt-destroyer',
     title: 'Debt Destroyer',
-    emoji: '⛏️',
+    icon: 'scale',
     minAge: 18,
     blurb: 'You start with a $3,500 student loan at 6.5% APR. Pay it off completely.',
     setup(state) {
@@ -55,7 +55,7 @@ export const CHALLENGES = [
   {
     id: 'credit-builder',
     title: 'Credit Builder',
-    emoji: '📈',
+    icon: 'trendup',
     minAge: 18,
     blurb: 'Open a credit card, use it well, and reach a 700 credit score.',
     setup(state) {},
@@ -73,7 +73,7 @@ export const CHALLENGES = [
   {
     id: 'safety-net',
     title: 'Safety Net',
-    emoji: '🛟',
+    icon: 'shield',
     minAge: 16,
     blurb: 'Build an emergency fund worth three months of your spending, kept in high-yield savings.',
     setup(state) {},
@@ -92,7 +92,7 @@ export const CHALLENGES = [
   {
     id: 'future-you',
     title: 'Future You',
-    emoji: '🌱',
+    icon: 'sprout',
     minAge: 18,
     blurb: 'Get your retirement account to $10,000 using contributions and the employer match.',
     setup(state) {},
@@ -121,7 +121,7 @@ export function startChallenge(state, challengeId) {
 
 /*
  * Evaluate the active goal after a month. Returns null when there is no
- * goal, otherwise { id, title, emoji, progress, label, justCompleted }.
+ * goal, otherwise { id, title, icon, progress, label, justCompleted }.
  * Marks state.goal.done when the target is reached.
  */
 export function checkGoal(state) {
@@ -138,7 +138,7 @@ export function checkGoal(state) {
   return {
     id: challenge.id,
     title: challenge.title,
-    emoji: challenge.emoji,
+    icon: challenge.icon,
     progress,
     label: challenge.describeProgress(state),
     done: state.goal.done,

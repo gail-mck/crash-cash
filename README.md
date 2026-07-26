@@ -15,6 +15,8 @@ browser's local storage.
 * **Explore mode** (default): a pure sandbox. Take any job, change your hours,
   open accounts, crank interest-rate dials, fast-forward a year, and watch
   cause and effect. No goals, no fail states.
+  A guided walkthrough unlocks the app one clear step at a time on your first
+  run (job, budget, bank, first month), and can be skipped by returning players.
 * **Challenge mode**: pick a goal (pay off a student loan, reach a 700 credit
   score, build an emergency fund, grow a retirement balance) and chase it while
   life throws surprises at you. Difficulty ranges from Peaceful to Hard Mode.
@@ -22,8 +24,15 @@ browser's local storage.
 ## What the simulation covers
 
 * **Jobs**: 38 real-world roles with average pay, hourly and salaried, from
-  babysitting to software development, plus fully custom jobs. Commitment
-  (hours per week), benefits eligibility, health premiums.
+  babysitting to software development, searchable in a clean picker, plus
+  fully custom jobs. Commitment (hours per week), benefits, health premiums.
+* **Time and age**: the simulation starts in the real current month, and your
+  character ages one year for every twelve simulated months. Start at 17 and
+  credit unlocks mid-run the month you turn 18. Starting ages run 12 to 26+.
+* **Offers**: fictional companies pitch you credit cards, bank accounts, and
+  investments by mail (and the pushy ones interrupt you). Some are great,
+  some are traps, one is a Ponzi scheme. The fine print always tells the
+  truth; deciding reveals the verdict and the lesson.
 * **Taxes**: 2025 federal brackets, the standard deduction, FICA (Social
   Security and Medicare with the wage cap), optional flat state tax, paycheck
   withholding, and a real April tax season that reconciles the year into a
@@ -69,7 +78,7 @@ The runtime is pure HTML/CSS/JavaScript (ES modules, zero dependencies).
 Python is used only for optional dev tooling.
 
 ```
-npm test                                  # 53 engine unit tests (node --test)
+npm test                                  # engine unit tests (node --test)
 python3 tools/validate_data.py            # dataset integrity checks
 python3 -m pytest tests/python -q         # 55 data/tooling tests (needs pytest)
 ```

@@ -13,6 +13,7 @@ import { generateInsights } from '../engine/insights.js';
  * Show the report for a finished month.
  * opts.fastForwarded: number of months skipped (0/false for a single step).
  * opts.goalCelebration: goal object when a challenge completed this batch.
+ * opts.onClose: called when the report closes (guided setup / pushy offers).
  */
 export function showMonthReport(ctx, report, opts = {}) {
   const state = ctx.state;
@@ -21,7 +22,7 @@ export function showMonthReport(ctx, report, opts = {}) {
 
   openModal((close) => [
     closeBtn(close),
-    opts.goalCelebration ? el('div', { class: 'confetti' }, '🎉🏆🎉') : null,
+    opts.goalCelebration ? el('div', { class: 'confetti', style: 'color: var(--good)' }, '★') : null,
     opts.goalCelebration
       ? el('h2', {}, 'Challenge complete: ' + opts.goalCelebration.title + '!')
       : el('h2', {}, label + ' report'),
@@ -78,12 +79,24 @@ export function showMonthReport(ctx, report, opts = {}) {
       report.interest.savings > 0 ? statRow('Savings interest', '+' + usd(report.interest.savings), { tone: 'good' }) : null,
       report.interest.hysa > 0 ? statRow('High-yield interest', '+' + usd(report.interest.hysa), { tone: 'good', why: 'apy' }) : null,
       report.interest.retirement > 0 ? statRow('Retirement growth', '+' + usd(report.interest.retirement), { tone: 'good', why: 'compound-interest' }) : null,
-      (report.interest.savings + report.interest.hysa + report.interest.retirement) === 0
+      ...(report.investments || []).map((inv) => inv.collapsed
+        ? statRow(inv.name, usd(inv.change), { tone: 'bad' })
+        : statRow(inv.name + ' (invested)', (inv.change >= 0 ? '+' : '') + usd(inv.change), { tone: inv.change >= 0 ? 'good' : 'bad' })),
+      (report.interest.savings + report.interest.hysa + report.interest.retirement) === 0 && !(report.investments || []).length
         ? el('p', { class: 'muted' }, 'Nothing earned interest this month. Money has to be parked somewhere that pays to grow on its own.')
         : null,
     ]),
 
-    report.taxSeason ? section('🏛️ Tax season', [
+    (report.checkingFee > 0 || report.cardAnnualFee > 0 || report.rewardsEarned > 0 || report.teaserEnded) ? section('Fees and fine print', [
+      report.checkingFee > 0 ? statRow('Checking account monthly fee', '-' + usd(report.checkingFee), { tone: 'bad' }) : null,
+      report.cardAnnualFee > 0 ? statRow('Credit card annual fee', '-' + usd(report.cardAnnualFee), { tone: 'bad' }) : null,
+      report.rewardsEarned > 0 ? statRow('Card rewards cash back', '+' + usd(report.rewardsEarned), { tone: 'good' }) : null,
+      report.teaserEnded
+        ? el('p', { class: 'tiny bad-text' }, 'Your savings account\'s intro rate just expired and the APY dropped, exactly like the fine print said it would.')
+        : null,
+    ]) : null,
+
+    report.taxSeason ? section('Tax season', [
       statRow('Your real tax bill for last year', usd(report.taxSeason.liability)),
       statRow('What your paychecks withheld', usd(report.taxSeason.withheld), { why: 'withholding' }),
       el('div', { class: 'bigline' },
@@ -102,18 +115,22 @@ export function showMonthReport(ctx, report, opts = {}) {
     ]) : null,
 
     report.goal && !opts.goalCelebration ? section('Goal check', [
-      el('p', {}, report.goal.emoji + ' ' + report.goal.title + ': ' + report.goal.label),
+      el('p', {}, report.goal.title + ': ' + report.goal.label),
     ]) : null,
 
-    insights.length ? section('💡 The takeaways', insights.map((ins) =>
+    report.newOffer && !report.newOffer.pushy ? section('Mail', [
+      el('p', { class: 'muted' }, 'A new offer landed in your Mailbox. No rush; it will wait while you read the fine print.'),
+    ]) : null,
+
+    insights.length ? section('The takeaways', insights.map((ins) =>
       el('div', { class: 'insight ' + ins.tone },
-        el('span', { class: 'em' }, ins.tone === 'good' ? '✅' : ins.tone === 'warn' ? '⚠️' : 'ℹ️'),
+        el('span', { class: 'em' }, ins.tone === 'good' ? '+' : ins.tone === 'warn' ? '!' : 'i'),
         el('span', {}, ins.text)))) : null,
 
     el('div', { class: 'row mt' },
       el('button', { class: 'btn primary big', onclick: close }, 'Got it'),
     ),
-  ]);
+  ], { onClose: opts.onClose });
 }
 
 function section(title, children) {

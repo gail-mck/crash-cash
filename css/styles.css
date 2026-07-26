@@ -40,8 +40,8 @@
     --bg-raised: #171f36;
     --bg-sunken: #0b101e;
     --text: #eef1f8;
-    --text-soft: #a3adc7;
-    --text-faint: #6b7694;
+    --text-soft: #b6bfd6;
+    --text-faint: #808aa8;
     --line: #262f4c;
     --brand: #6675ff;
     --brand-soft: #232c55;
@@ -63,8 +63,8 @@
   --bg-raised: #171f36;
   --bg-sunken: #0b101e;
   --text: #eef1f8;
-  --text-soft: #a3adc7;
-  --text-faint: #6b7694;
+  --text-soft: #b6bfd6;
+  --text-faint: #808aa8;
   --line: #262f4c;
   --brand: #6675ff;
   --brand-soft: #232c55;
@@ -169,6 +169,7 @@ button { font-family: inherit; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
 .next-month {
+  position: fixed; bottom: 24px; right: 24px; z-index: 35;
   display: inline-flex; align-items: center; gap: 10px;
   background: linear-gradient(135deg, var(--brand), var(--accent));
   color: #fff; border: 0; cursor: pointer;
@@ -208,7 +209,9 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .grid { display: grid; gap: 16px; }
 .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
 .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-.grid.autofit { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+/* auto-fill (not auto-fit) keeps every card the same width even when a row
+   is not full, so no account ever looks more important than the others. */
+.grid.autofit { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 
 .acct { position: relative; overflow: hidden; }
 .acct .label { display: flex; align-items: center; gap: 8px; font-size: .86rem; font-weight: 700; color: var(--text-soft); }
@@ -362,11 +365,77 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
   .shell { grid-template-columns: 1fr; }
   .sidenav { display: none; }
   .bottomnav { display: flex; }
-  .main { padding-bottom: 120px; }
+  .main { padding-bottom: 150px; }
   .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; }
+  .next-month { bottom: calc(76px + env(safe-area-inset-bottom)); right: 16px; }
 }
 
-/* 15. Utility */
+/* 15. Icons */
+
+.ic { display: inline-flex; align-items: center; justify-content: center; flex: none; vertical-align: -3px; }
+.navbtn .ic { width: 22px; }
+
+/* 16. HUD: the always-visible stats card */
+
+.hud {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: var(--shadow-big);
+  font-size: .8rem; overflow: hidden;
+}
+@media (min-width: 901px) {
+  /* The HUD lives in its own sticky right rail so it never covers content. */
+  .main {
+    display: grid; grid-template-columns: minmax(0, 1fr) 232px;
+    gap: 0 20px; align-items: start; max-width: 1280px;
+  }
+  .main > *:not(.hud) { grid-column: 1; }
+  .hud { grid-column: 2; grid-row: 1 / span 40; position: sticky; top: 16px; }
+}
+.hud .hud-head {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; border: 0; background: transparent; color: inherit; cursor: pointer;
+  padding: 10px 12px; font: inherit; font-weight: 800;
+}
+.hud .hud-head .sub { font-weight: 600; color: var(--text-soft); font-size: .72rem; }
+.hud .hud-body { padding: 0 12px 10px; }
+.hud .hudrow { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.hud .hudrow .k { color: var(--text-soft); }
+.hud .hudrow .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+.hud .hud-extra { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 6px; }
+@media (max-width: 900px) {
+  .hud { margin-bottom: 14px; }
+}
+
+/* 17. Guided setup */
+
+.guide-banner {
+  display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, var(--brand-soft), transparent);
+  border: 1.5px solid var(--brand);
+  border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px;
+}
+.guide-banner .step-no {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--brand); color: #fff; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.navbtn.locked { opacity: .45; cursor: not-allowed; }
+.navbtn.locked:hover { background: transparent; color: var(--text-soft); }
+
+/* 18. Job picker + offer modals */
+
+.picker-list { display: grid; gap: 8px; margin-top: 12px; max-height: 46vh; overflow: auto; }
+.offer-mail { border: 1.5px dashed var(--warn); border-radius: var(--radius-sm); padding: 4px 10px; font-size: .72rem; color: var(--warn); display: inline-block; margin-bottom: 8px; letter-spacing: .04em; font-weight: 700; }
+.offer-head { font-size: 1.3rem; font-weight: 800; letter-spacing: -.01em; }
+.offer-company { color: var(--text-soft); font-size: .85rem; font-weight: 700; }
+.fineprint { background: var(--bg-sunken); border-radius: var(--radius-sm); padding: 10px 14px; font-size: .82rem; }
+.fineprint .fp-row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.mail-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer; background: transparent; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font: inherit; color: inherit; }
+.mail-item:hover .t { color: var(--brand-text); }
+.mail-item .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); flex: none; }
+.nav-badge { background: var(--bad); color: #fff; font-size: .68rem; font-weight: 800; border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+
+/* 19. Utility */
 
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }

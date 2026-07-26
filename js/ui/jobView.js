@@ -6,9 +6,11 @@
  */
 
 import { el, mount, openModal, closeBtn, whyButton, statRow, pill, segmented } from './components.js';
+import { icon } from './icons.js';
+import { guideBanner, completeStep } from './guide.js';
 import { runPayroll, monthlyGross, employerMatch } from '../engine/payroll.js';
 import { usd, clamp } from '../engine/format.js';
-import { bandMinAge } from '../state.js';
+import { currentAge } from '../state.js';
 import { JOBS, JOB_CATEGORIES } from '../../data/jobs.js';
 
 /* Payroll options for this save, so previews match the real engine exactly. */
@@ -25,7 +27,7 @@ function payLabel(job) {
 
 export function renderJobView(ctx) {
   const state = ctx.state;
-  const parts = [];
+  const parts = [guideBanner(ctx)];
 
   if (state.job) {
     /* Section 1: the job you hold and its monthly paycheck preview. */
@@ -40,10 +42,17 @@ export function renderJobView(ctx) {
     parts.push(emptyStateCard());
   }
 
-  /* Section 4: the job browser, always available. */
-  parts.push(browserCard(ctx));
-  /* Section 5: build-your-own job. */
-  parts.push(customJobCard(ctx));
+  /* Section 4: two clear doors instead of a wall of options. */
+  parts.push(el('div', { class: 'card' },
+    el('h2', {}, icon('search', 20), ' ', state.job ? 'Switch jobs' : 'Find a job'),
+    el('p', { class: 'muted' }, 'Search realistic jobs with average pay, or invent your own. You can switch whenever you like.'),
+    el('div', { class: 'row' },
+      el('button', { class: 'btn primary', onclick: () => openJobPicker(ctx) },
+        icon('search', 16), ' Browse & search jobs'),
+      el('button', { class: 'btn', onclick: () => openCustomJobModal(ctx) },
+        icon('edit', 16), ' Create a custom job'),
+    ),
+  ));
 
   return el('div', {}, parts);
 }
@@ -75,7 +84,7 @@ function currentJobCard(ctx) {
   return el('div', { class: 'card' },
     el('div', { class: 'row between' },
       el('div', {},
-        el('h2', {}, '💼 ' + job.title),
+        el('h2', {}, icon('briefcase', 20), ' ' + job.title),
         el('p', { class: 'muted' },
           job.type === 'hourly'
             ? 'Hourly at ' + payLabel(job) + ', ' + (job.hoursPerWeek || 0) + ' hours a week '
@@ -192,7 +201,7 @@ function benefitsCard(ctx) {
   });
 
   return el('div', { class: 'card' },
-    el('h2', {}, '🎁 Benefits'),
+    el('h2', {}, icon('gift', 20), ' Benefits'),
     el('h3', {}, 'Retirement contribution ', pctOut),
     el('p', { class: 'tiny' },
       'A slice of each paycheck goes into your retirement account before taxes. Your employer chips in too.'),
@@ -259,57 +268,70 @@ function taxControls(ctx) {
 
 function emptyStateCard() {
   return el('div', { class: 'card' },
-    el('h2', {}, '💼 No job yet'),
+    el('h2', {}, icon('briefcase', 20), ' No job yet'),
     el('p', { class: 'muted' },
       'A job is what starts the money flowing. Pick one below, and every time you hit Next Month a paycheck lands in your checking account, with a real breakdown of where every dollar goes.'),
     el('p', { class: 'tiny' }, 'You can switch or quit any time. Nothing here is permanent.'),
   );
 }
 
-/* ---- Section 4: the job browser ---- */
+/* ---- Section 4: the job picker modal (search first, list second) ---- */
 
-function browserCard(ctx) {
+function openJobPicker(ctx) {
   const state = ctx.state;
-  const minAge = bandMinAge(state.profile.ageBand);
-  /* Only jobs this character is old enough to hold. */
-  const eligible = JOBS.filter((j) => minAge >= j.minAge);
+  const age = currentAge(state);
+  /* Only jobs this character is old enough to hold right now. */
+  const eligible = JOBS.filter((j) => age >= j.minAge);
   const cats = JOB_CATEGORIES.filter((c) => eligible.some((j) => j.category === c));
 
-  /* The filter is view-local, so only the tabs and list rerender on pick. */
   let filter = 'all';
-  const tabsWrap = el('div', { class: 'mb' });
-  const listWrap = el('div', {});
+  let query = '';
 
-  function renderTabs() {
-    mount(tabsWrap, segmented(
-      [{ value: 'all', label: 'All' }, ...cats.map((c) => ({ value: c, label: c }))],
-      filter,
-      (v) => { filter = v; renderTabs(); renderList(); },
-    ));
-  }
+  openModal((close) => {
+    const tabsWrap = el('div', { class: 'mb', style: 'margin-top:10px' });
+    const listWrap = el('div', { class: 'picker-list' });
 
-  function renderList() {
-    const shown = filter === 'all' ? eligible : eligible.filter((j) => j.category === filter);
-    mount(listWrap, shown.length
-      ? el('div', { class: 'joblist' }, shown.map((j) => jobCardButton(ctx, j)))
-      : el('p', { class: 'muted' }, 'Nothing in this category right now.'));
-  }
+    function renderTabs() {
+      mount(tabsWrap, segmented(
+        [{ value: 'all', label: 'All' }, ...cats.map((c) => ({ value: c, label: c }))],
+        filter,
+        (v) => { filter = v; renderTabs(); renderList(); },
+      ));
+    }
 
-  renderTabs();
-  renderList();
+    function renderList() {
+      const q = query.toLowerCase();
+      const shown = eligible.filter((j) =>
+        (filter === 'all' || j.category === filter) &&
+        (!q || j.title.toLowerCase().includes(q) || j.blurb.toLowerCase().includes(q)));
+      mount(listWrap, shown.length
+        ? shown.map((j) => jobCardButton(ctx, j, close))
+        : el('p', { class: 'muted' }, 'No jobs match. Try another word, or create a custom job instead.'));
+    }
 
-  return el('div', { class: 'card' },
-    el('h2', {}, state.job ? '🔎 Switch jobs' : '🔎 Find a job'),
-    el('p', { class: 'muted' },
-      'Pay figures are realistic averages. Pick whatever sounds interesting, you can switch whenever you like.'),
-    tabsWrap,
-    listWrap,
-  );
+    const search = el('input', {
+      type: 'text', placeholder: 'Search ' + eligible.length + ' jobs (barista, nurse, ...)',
+      oninput: (e) => { query = e.target.value; renderList(); },
+    });
+    setTimeout(() => search.focus(), 50);
+
+    renderTabs();
+    renderList();
+
+    return [
+      closeBtn(close),
+      el('h2', {}, 'Find a job'),
+      el('p', { class: 'tiny' }, 'Pay figures are realistic averages. Jobs you are not old enough for yet will appear as you age.'),
+      search,
+      tabsWrap,
+      listWrap,
+    ];
+  });
 }
 
-/* One clickable job card in the browser grid. */
-function jobCardButton(ctx, job) {
-  return el('button', { class: 'jobcard', onclick: () => openJobDetails(ctx, job) },
+/* One clickable job card in the picker list. */
+function jobCardButton(ctx, job, closePicker) {
+  return el('button', { class: 'jobcard', onclick: () => openJobDetails(ctx, job, closePicker) },
     el('div', { class: 'row between' },
       el('span', { class: 't' }, job.title),
       pill(job.category)),
@@ -319,7 +341,7 @@ function jobCardButton(ctx, job) {
 }
 
 /* The details + confirm modal before taking a job. */
-function openJobDetails(ctx, job) {
+function openJobDetails(ctx, job, closePicker) {
   const current = ctx.state.job;
   const isCurrent = !!current && current.jobId === job.id;
   const kindId = job.retirementKind === '403b' ? '403b' : '401k';
@@ -349,7 +371,7 @@ function openJobDetails(ctx, job) {
         ? el('button', { class: 'btn', disabled: true }, 'This is your current job')
         : el('button', {
           class: 'btn primary',
-          onclick: () => { close(); takeJob(ctx, job); },
+          onclick: () => { close(); if (closePicker) closePicker(); takeJob(ctx, job); },
         }, 'Take this job'),
     ),
   ]);
@@ -376,11 +398,12 @@ function takeJob(ctx, job) {
       statePct: prevStatePct,
     };
   });
+  completeStep(ctx, 'job');
 }
 
 /* ---- Section 5: create a custom job ---- */
 
-function customJobCard(ctx) {
+function openCustomJobModal(ctx) {
   /*
    * A local form model. Text and number inputs write straight into it on
    * input (no rerender, so focus never jumps); structural toggles like
@@ -394,6 +417,7 @@ function customJobCard(ctx) {
   };
   let error = '';
   const body = el('div', {});
+  let closeModal = null;
 
   function numField(label, key, opts = {}) {
     return el('label', { class: 'field' },
@@ -485,14 +509,20 @@ function customJobCard(ctx) {
         statePct: prevStatePct,
       };
     });
+    if (closeModal) closeModal();
+    completeStep(ctx, 'job');
   }
 
   render();
 
-  return el('div', { class: 'card' },
-    el('h2', {}, '🛠️ Create a custom job'),
-    el('p', { class: 'muted' },
-      'Model a real offer, a side hustle, or a dream gig. The paycheck math treats it exactly like any other job.'),
-    body,
-  );
+  openModal((close) => {
+    closeModal = close;
+    return [
+      closeBtn(close),
+      el('h2', {}, 'Create a custom job'),
+      el('p', { class: 'muted' },
+        'Model a real offer, a side hustle, or a dream gig. The paycheck math treats it exactly like any other job.'),
+      body,
+    ];
+  });
 }

@@ -3,16 +3,28 @@
  * The single source of truth for a Crash Cash save: the state shape, factory
  * defaults, localStorage persistence, and export/import.
  *
+ * Schema v2: numeric age (ages 1 year per 12 simulated months), simulation
+ * starts at the real current month, guided setup steps, offer mailbox,
+ * and investments.
+ *
  * The engine never touches localStorage; persistence lives here and is
  * guarded so the same module loads cleanly inside Node tests.
  */
 
 import { toCents } from './engine/format.js';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const STORAGE_KEY = 'crash-cash-save-v1';
 
-export const AGE_BANDS = ['12-13', '14-15', '16-17', '18-21', '22-25'];
+/* Starting-age quick picks for onboarding. Any age 12+ is valid. */
+export const STARTING_AGES = [
+  { age: 12, label: '12', blurb: 'First money: allowance, chores, informal gigs.' },
+  { age: 14, label: '14', blurb: 'First real gigs and a savings habit.' },
+  { age: 16, label: '16', blurb: 'First W-2 job, first taxes withheld.' },
+  { age: 18, label: '18', blurb: 'Credit unlocks. So do the consequences.' },
+  { age: 22, label: '22', blurb: 'Career, benefits, 401k, the whole deal.' },
+  { age: 26, label: '26+', blurb: 'Bigger paychecks, bigger decisions.' },
+];
 
 export const DIFFICULTIES = [
   { id: 'peaceful', label: 'Peaceful', eventChance: 0, blurb: 'No surprises at all. Pure sandbox.' },
@@ -21,38 +33,43 @@ export const DIFFICULTIES = [
   { id: 'bold', label: 'Hard Mode', eventChance: 0.65, blurb: 'Life comes at you fast. Expenses hit harder.' },
 ];
 
-/* Numeric minimum age for a band, used to filter jobs and events. */
-export function bandMinAge(ageBand) {
-  return parseInt(String(ageBand).split('-')[0], 10) || 12;
+/* Guided setup steps, in order. 'done' unlocks everything. */
+export const SETUP_STEPS = ['job', 'budget', 'bank', 'first-month', 'done'];
+
+/*
+ * The character's age right now: starting age plus one year for every
+ * twelve simulated months.
+ */
+export function currentAge(state) {
+  return state.profile.age + Math.floor(state.time.monthIndex / 12);
 }
 
-/* Whether this profile can open a credit card (18 or older). */
+/* Whether this character can open a credit card (18 or older, right now). */
 export function canHaveCard(state) {
-  return bandMinAge(state.profile.ageBand) >= 18;
+  return currentAge(state) >= 18;
 }
 
 /*
  * Build a brand new save.
- * `profile`: { name, ageBand, difficulty, mode }
- * `mode` is 'explore' (free sandbox, the default) or 'challenge'
- * (goal-driven; the chosen goal is attached separately via goals.js).
+ * `profile`: { name, age (starting age, number), difficulty, mode }
+ * `mode` is 'explore' (free sandbox, the default) or 'challenge'.
  */
 export function createInitialState(profile) {
-  const minAge = bandMinAge(profile.ageBand);
-  /* Older players start with a little more cash on hand. */
-  const startingChecking = minAge >= 22 ? 800 : minAge >= 18 ? 400 : minAge >= 16 ? 150 : 60;
-  const startingSavings = minAge >= 18 ? 200 : 40;
+  const age = Math.max(12, Number(profile.age) || 16);
+  const startingChecking = age >= 22 ? 800 : age >= 18 ? 400 : age >= 16 ? 150 : 60;
+  const startingSavings = age >= 18 ? 200 : 40;
+  const now = new Date();
 
   return {
     version: SCHEMA_VERSION,
     profile: {
       name: profile.name || 'Player',
-      ageBand: profile.ageBand || '16-17',
+      age,
       difficulty: profile.difficulty || (profile.mode === 'challenge' ? 'normal' : 'peaceful'),
       mode: profile.mode || 'explore',
     },
     goal: null,
-    time: { monthIndex: 0, startYear: 2026, startMonth: 0 },
+    time: { monthIndex: 0, startYear: now.getFullYear(), startMonth: now.getMonth() },
     job: null,
     accounts: {
       checking: startingChecking,
@@ -68,14 +85,18 @@ export function createInitialState(profile) {
     },
     card: null,
     debts: [],
+    investments: [],
+    mailbox: [],
+    checkingMonthlyFee: 0,
     budget: {
-      categories: defaultBudget(minAge),
+      categories: defaultBudget(age),
       autoSave: { savings: 0, hysa: 0 },
     },
     settings: {
       eventPayMethod: 'checking',
       cardAutopay: 'full',
       extraWithholding: 0,
+      offersEnabled: true,
     },
     ytd: emptyYtd(),
     lastYearTax: null,
@@ -83,13 +104,13 @@ export function createInitialState(profile) {
     history: [],
     ledger: [],
     report: null,
-    flags: { onboarded: true, seenReportHint: false },
+    flags: { setupStep: 'job' },
   };
 }
 
 /* Age-appropriate starter budget categories. */
-export function defaultBudget(minAge) {
-  if (minAge >= 18) {
+export function defaultBudget(age) {
+  if (age >= 18) {
     return [
       { id: 'housing', name: 'Rent & utilities', kind: 'need', planned: 0, method: 'debit' },
       { id: 'food', name: 'Food & groceries', kind: 'need', planned: 200, method: 'debit' },
@@ -122,7 +143,8 @@ export function emptyYtd() {
 /* Net worth: everything owned minus everything owed. */
 export function netWorth(state) {
   const a = state.accounts;
-  const owned = a.checking + a.savings + a.hysa + a.retirement;
+  const invested = (state.investments || []).reduce((s, inv) => s + Math.max(0, inv.balance), 0);
+  const owned = a.checking + a.savings + a.hysa + a.retirement + invested;
   const cardDebt = state.card ? state.card.balance : 0;
   const loanDebt = state.debts.reduce((s, d) => s + Math.max(0, d.principal), 0);
   return toCents(owned - cardDebt - loanDebt);
@@ -132,6 +154,24 @@ export function netWorth(state) {
 export function logTxn(state, entry) {
   state.ledger.push({ monthIndex: state.time.monthIndex, ...entry });
   if (state.ledger.length > 400) state.ledger.splice(0, state.ledger.length - 400);
+}
+
+/* Whether a given area of the app is unlocked under guided setup. */
+export function isUnlocked(state, area) {
+  const step = state.flags.setupStep || 'done';
+  if (step === 'done') return true;
+  const order = { job: 0, budget: 1, bank: 2, 'first-month': 3, done: 4 };
+  const reached = order[step] ?? 4;
+  const needs = { dashboard: 3, job: 0, budget: 1, bank: 2, mailbox: 4, learn: 4, settings: 4 };
+  return reached >= (needs[area] ?? 0);
+}
+
+/* Advance the guided setup to the next step. Returns the new step. */
+export function advanceSetup(state) {
+  const i = SETUP_STEPS.indexOf(state.flags.setupStep || 'done');
+  const next = SETUP_STEPS[Math.min(i + 1, SETUP_STEPS.length - 1)];
+  state.flags.setupStep = next;
+  return next;
 }
 
 const hasStorage = typeof localStorage !== 'undefined';

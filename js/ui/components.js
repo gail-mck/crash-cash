@@ -48,28 +48,43 @@ export function mount(container, ...children) {
 
 /*
  * Open a modal. `build(close)` returns the modal's content nodes.
- * Returns the close function. Clicking the backdrop or pressing Escape closes.
+ * Returns the close function. Clicking the backdrop or pressing Escape
+ * closes the TOP modal only; modals stack (report -> explainer, etc.) and
+ * body scroll stays locked until the last one closes.
  */
+const modalStack = [];
+
 export function openModal(build, opts = {}) {
   const root = document.getElementById('modal-root');
-  /* Lock body scroll while the modal is open so the page cannot drift. */
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
+  if (modalStack.length === 0) document.body.style.overflow = 'hidden';
   const close = () => {
+    if (!backdrop.isConnected) return;
     backdrop.remove();
-    document.body.style.overflow = prevOverflow;
-    document.removeEventListener('keydown', onKey);
+    const i = modalStack.indexOf(close);
+    if (i !== -1) modalStack.splice(i, 1);
+    if (modalStack.length === 0) {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onEscape);
+    }
+    if (opts.onClose) opts.onClose();
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' });
   append(modal, [build(close)]);
   const backdrop = el('div', {
     class: 'modal-backdrop',
     onclick: (e) => { if (e.target === backdrop && !opts.sticky) close(); },
   }, modal);
-  document.addEventListener('keydown', onKey);
+  if (modalStack.length === 0) document.addEventListener('keydown', onEscape);
+  modalStack.push(close);
   root.append(backdrop);
   return close;
+}
+
+/* One shared Escape handler: closes only the modal on top of the stack. */
+function onEscape(e) {
+  if (e.key === 'Escape' && modalStack.length > 0) {
+    modalStack[modalStack.length - 1]();
+  }
 }
 
 /* A standard close button for modal corners. */
@@ -80,6 +95,10 @@ export function closeBtn(close) {
 /* 3. Glossary explainers ("why" buttons) */
 
 const glossaryById = new Map(GLOSSARY.map((g) => [g.id, g]));
+
+/* main.js registers this so explainers can deep-link into the Learn tab. */
+let navigateToLearn = null;
+export function setLearnNavigator(fn) { navigateToLearn = fn; }
 
 /*
  * A small "?" button that opens a plain-language explainer.
@@ -104,7 +123,10 @@ export function openExplainer(glossaryId, extraLines = []) {
     el('h2', {}, entry ? entry.term : 'About this'),
     entry ? el('p', { class: 'muted' }, entry.definition) : null,
     ...extraLines.map((line) => el('p', {}, line)),
-    entry ? el('p', { class: 'tiny' }, 'Category: ' + entry.category + '. Find more in the Learn tab.') : null,
+    entry && navigateToLearn ? el('button', {
+      class: 'btn small ghost',
+      onclick: () => { close(); navigateToLearn(entry.term); },
+    }, 'Read more in Learn →') : null,
   ]);
 }
 
