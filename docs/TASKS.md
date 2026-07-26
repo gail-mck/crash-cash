@@ -24,6 +24,21 @@ migrated to real issues one-to-one.
   tax reconciliation copy, score chart baseline, mobile min-width overflow.
 * CC-7 [main] README, architecture docs, GitHub Pages deploy instructions
 
+## Round 2 (UX rework, 2026-07-25)
+
+* CC-12 [main] Guided progressive-unlock walkthrough with congrats popups
+* CC-13 [main] Search-first job picker modal; custom job moved to a modal
+* CC-14 [offers-agent + main] Company offers: 18 fictional offers dataset,
+  mailbox tab with badge, pushy popups, fine print, verdicts, investments
+  (including scams), teaser HYSA rates, fee checking, card annual fees/rewards
+* CC-15 [main] Expandable HUD stats card in a sticky right rail
+* CC-16 [main] Numeric age (1 year per 12 sim months), starting ages 12 to 26+,
+  live gating of jobs/credit; sim starts in the real current month; Timing card
+* CC-17 [main] Hand-rolled SVG line icon system replacing emoji chrome
+* CC-18 [main] Contrast bump for dark mode greys; equal account cards
+* CC-19 [user-test-agent] Fresh-eyes user test pass
+* CC-20 [review-agent] Code review of the rework diff
+
 ## Backlog (future ideas)
 
 * CC-8 Scenario packs (college vs trade school vs straight to work)
